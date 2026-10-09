@@ -68,6 +68,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.araswqm.hatir.R
 import com.araswqm.hatir.ui.common.CharacterAvatar
+import com.araswqm.hatir.ui.common.MarkdownText
 import com.araswqm.hatir.ui.common.relativeTime
 import java.io.File
 import kotlinx.coroutines.launch
@@ -387,7 +388,7 @@ private fun Bubble(
             .pointerInputLongPress(message.id) { currentLongPress() }
             .padding(horizontal = 14.dp, vertical = 10.dp),
     ) {
-        Text(
+        MarkdownText(
             text = message.text,
             style = MaterialTheme.typography.bodyMedium,
             color = content,
@@ -429,11 +430,27 @@ private fun StreamingBubble(text: String, waitingLabel: String) {
                 .background(MaterialTheme.colorScheme.secondaryContainer)
                 .padding(horizontal = 14.dp, vertical = 10.dp),
         ) {
-            Text(
-                text = if (text.isBlank()) waitingLabel else "$text▍",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSecondaryContainer,
-            )
+            if (text.isBlank()) {
+                Text(
+                    text = waitingLabel,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                )
+            } else {
+                Row(verticalAlignment = Alignment.Bottom) {
+                    MarkdownText(
+                        text = text,
+                        modifier = Modifier.weight(1f, fill = false),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    )
+                    Text(
+                        text = "▍",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+            }
         }
     }
 }

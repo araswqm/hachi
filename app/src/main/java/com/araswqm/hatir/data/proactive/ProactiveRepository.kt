@@ -6,6 +6,7 @@ import com.araswqm.hatir.data.ai.AiMessage
 import com.araswqm.hatir.data.ai.AiUsage
 import com.araswqm.hatir.data.ai.DeepSeekClient
 import com.araswqm.hatir.data.ai.MissingApiKeyException
+import com.araswqm.hatir.data.ai.Placeholders
 import com.araswqm.hatir.data.ai.PromptBuilder
 import com.araswqm.hatir.data.db.dao.CharacterDao
 import com.araswqm.hatir.data.db.dao.FollowupDao
@@ -19,6 +20,7 @@ import com.araswqm.hatir.data.db.entity.ProactiveLogEntity
 import com.araswqm.hatir.data.memory.ChatState
 import com.araswqm.hatir.data.memory.IntimacyEngine
 import com.araswqm.hatir.data.repo.MemoryRepository
+import com.araswqm.hatir.data.repo.PersonaRepository
 import com.araswqm.hatir.data.settings.SettingsRepository
 import com.araswqm.hatir.notify.Notifications
 import java.time.Instant
@@ -57,6 +59,7 @@ class ProactiveRepository @Inject constructor(
     private val followupDao: FollowupDao,
     private val logDao: ProactiveLogDao,
     private val memoryRepository: MemoryRepository,
+    private val personaRepository: PersonaRepository,
     private val settings: SettingsRepository,
     private val client: DeepSeekClient,
     private val promptBuilder: PromptBuilder,
@@ -184,11 +187,12 @@ class ProactiveRepository @Inject constructor(
         val recent = withContext(io) {
             messageDao.getLast(character.id, Tuning.RECENT_MESSAGES_IN_PROMPT).reversed()
         }
+        val userName = withContext(io) { personaRepository.getSelected()?.name }
 
         val result = try {
             client.complete(
                 model = settingsNow.modelDecision,
-                messages = buildDecisionPrompt(character, memory, recent, dueFollowup, now),
+                messages = buildDecisionPrompt(character, userName, memory, recent, dueFollowup, now),
                 temperature = Tuning.DECISION_TEMPERATURE,
                 maxTokens = Tuning.DECISION_MAX_TOKENS,
                 jsonMode = true,
@@ -238,17 +242,18 @@ class ProactiveRepository @Inject constructor(
             return
         }
 
-        send(character, decision, dueFollowup, now, result.usage)
+        send(character, userName, decision, dueFollowup, now, result.usage)
     }
 
     private suspend fun send(
         character: CharacterEntity,
+        userName: String?,
         decision: DecisionResponse,
         dueFollowup: FollowupEntity?,
         now: Long,
         usage: AiUsage?,
     ) {
-        val text = decision.message.trim()
+        val text = Placeholders.resolve(decision.message.trim(), character.name, userName)
         val today = LocalDate.ofInstant(Instant.ofEpochMilli(now), ZoneId.systemDefault()).toString()
 
         withContext(io) {
@@ -314,11 +319,13 @@ class ProactiveRepository @Inject constructor(
 
     private fun buildDecisionPrompt(
         character: CharacterEntity,
+        userName: String?,
         memory: String,
         recent: List<MessageEntity>,
         dueFollowup: FollowupEntity?,
         now: Long,
     ): List<AiMessage> {
+        fun r(text: String) = Placeholders.resolve(text, character.name, userName)
         val system = buildString {
             appendLine("# GÖREV")
             appendLine(
@@ -333,13 +340,13 @@ class ProactiveRepository @Inject constructor(
             appendLine("- Devam eden bir konu yoksa veya söyleyecek anlamlı bir şey yoksa \"send\": false ver.")
             appendLine("- Yanıtı SADECE geçerli bir JSON nesnesi olarak ver.")
             appendLine()
-            appendLine(promptBuilder.characterBlock(character))
+            appendLine(promptBuilder.characterBlock(character, userName))
         }.trim()
 
         val user = buildString {
             if (memory.isNotBlank()) {
                 appendLine("## İlişki / uzun vadeli hafıza")
-                appendLine(memory)
+                appendLine(r(memory))
                 appendLine()
             }
             appendLine("## Son mesajlar")
@@ -348,13 +355,13 @@ class ProactiveRepository @Inject constructor(
             } else {
                 recent.forEach { m ->
                     val who = if (m.role == MessageEntity.ROLE_USER) "Kullanıcı" else character.name
-                    appendLine("$who: ${m.content}")
+                    appendLine("$who: ${r(m.content)}")
                 }
             }
             appendLine()
             if (dueFollowup != null) {
                 appendLine("## Vadesi gelmiş takip konusu")
-                appendLine("- ${dueFollowup.text}")
+                appendLine("- ${r(dueFollowup.text)}")
                 appendLine()
             }
             appendLine("Şu an: ${Instant.ofEpochMilli(now).atZone(ZoneId.systemDefault())}")

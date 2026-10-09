@@ -26,6 +26,9 @@ class PersonaRepository @Inject constructor(
 
     fun observeAll(): Flow<List<PersonaEntity>> = personaDao.observeAll()
 
+    /** Secili persona; hic yoksa `null`. Satir olusturmaz ([getOrCreateSelected]'ten farki). */
+    suspend fun getSelected(): PersonaEntity? = withContext(io) { personaDao.getSelected() }
+
     /** Secili persona yoksa olusturur ve doner. */
     suspend fun getOrCreateSelected(): PersonaEntity = withContext(io) {
         personaDao.getSelected() ?: PersonaEntity(

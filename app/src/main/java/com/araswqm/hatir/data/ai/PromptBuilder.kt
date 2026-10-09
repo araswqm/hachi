@@ -31,7 +31,9 @@ class PromptBuilder @Inject constructor() {
         nowMillis: Long,
     ): List<AiMessage> {
         val system = systemPrompt(character, persona, memory)
-        val conversation = history.map { toAiMessage(it, history, nowMillis) }
+        val conversation = history.map {
+            toAiMessage(it, history, nowMillis, character.name, persona?.name)
+        }
         return buildList {
             add(AiMessage.system(system))
             addAll(conversation)
@@ -41,20 +43,26 @@ class PromptBuilder @Inject constructor() {
     /**
      * Sohbet disi cagrilar (ozetleyici, karar) icin system mesajinin yalnizca
      * karakter kimligi/bloklarini uretir; hafiza ve kurallar cagri sahibine birakilir.
+     *
+     * [userName] verilmezse `{{user}}` yer tutucusu [Placeholders.DEFAULT_USER_NAME]
+     * olur. Kart metinlerindeki `{{char}}`/`{{user}}` burada cozulur.
      */
-    fun characterBlock(character: CharacterEntity): String = buildString {
+    fun characterBlock(
+        character: CharacterEntity,
+        userName: String? = null,
+    ): String = buildString {
         appendLine("# KARAKTER: ${character.name}")
         if (character.description.isNotBlank()) {
             appendLine("## Açıklama")
-            appendLine(character.description.trim())
+            appendLine(resolve(character.description.trim(), character.name, userName))
         }
         if (character.personality.isNotBlank()) {
             appendLine("## Kişilik")
-            appendLine(character.personality.trim())
+            appendLine(resolve(character.personality.trim(), character.name, userName))
         }
         if (character.scenario.isNotBlank()) {
             appendLine("## Senaryo")
-            appendLine(character.scenario.trim())
+            appendLine(resolve(character.scenario.trim(), character.name, userName))
         }
     }.trim()
 
@@ -66,51 +74,55 @@ class PromptBuilder @Inject constructor() {
         character: CharacterEntity,
         persona: PersonaEntity?,
         memory: String,
-    ): String = buildString {
-        appendLine("# ROLÜN")
-        appendLine(
-            "Sen \"${character.name}\" adlı karaktersin. Aşağıdaki tanıma göre, " +
-                "tutarlı ve inandırıcı biçimde bu karakteri canlandırıyorsun.",
-        )
-        appendLine()
-
-        appendLine(characterBlock(character))
-        appendLine()
-
-        if (persona != null && (persona.name.isNotBlank() || persona.about.isNotBlank())) {
-            appendLine("# KARŞINDAKİ KİŞİ")
-            if (persona.name.isNotBlank()) appendLine("Adı: ${persona.name.trim()}")
-            if (persona.about.isNotBlank()) appendLine(persona.about.trim())
+    ): String {
+        val userName = persona?.name
+        fun r(text: String) = resolve(text, character.name, userName)
+        return buildString {
+            appendLine("# ROLÜN")
+            appendLine(
+                "Sen \"${character.name}\" adlı karaktersin. Aşağıdaki tanıma göre, " +
+                    "tutarlı ve inandırıcı biçimde bu karakteri canlandırıyorsun.",
+            )
             appendLine()
-        }
 
-        if (character.exampleDialogs.isNotBlank()) {
-            appendLine("# ÖRNEK DİYALOGLAR")
-            appendLine(character.exampleDialogs.trim())
+            appendLine(characterBlock(character, userName))
             appendLine()
-        }
 
-        if (character.systemPrompt.isNotBlank()) {
-            appendLine("# EK TALİMATLAR")
-            appendLine(character.systemPrompt.trim())
+            if (persona != null && (persona.name.isNotBlank() || persona.about.isNotBlank())) {
+                appendLine("# KARŞINDAKİ KİŞİ")
+                if (persona.name.isNotBlank()) appendLine("Adı: ${persona.name.trim()}")
+                if (persona.about.isNotBlank()) appendLine(r(persona.about.trim()))
+                appendLine()
+            }
+
+            if (character.exampleDialogs.isNotBlank()) {
+                appendLine("# ÖRNEK DİYALOGLAR")
+                appendLine(r(character.exampleDialogs.trim()))
+                appendLine()
+            }
+
+            if (character.systemPrompt.isNotBlank()) {
+                appendLine("# EK TALİMATLAR")
+                appendLine(r(character.systemPrompt.trim()))
+                appendLine()
+            }
+
+            if (memory.isNotBlank()) {
+                appendLine("# HAFIZA (ilişki geçmişi)")
+                appendLine(r(memory.trim()))
+                appendLine()
+            }
+
+            appendLine("# DAVRANIŞ KURALLARI")
+            appendLine(RULES)
             appendLine()
-        }
 
-        if (memory.isNotBlank()) {
-            appendLine("# HAFIZA (ilişki geçmişi)")
-            appendLine(memory.trim())
-            appendLine()
-        }
-
-        appendLine("# DAVRANIŞ KURALLARI")
-        appendLine(RULES)
-        appendLine()
-
-        if (character.postHistoryInstructions.isNotBlank()) {
-            appendLine("# SON TALİMATLAR (her şeyden önce gelir)")
-            appendLine(character.postHistoryInstructions.trim())
-        }
-    }.trim()
+            if (character.postHistoryInstructions.isNotBlank()) {
+                appendLine("# SON TALİMATLAR (her şeyden önce gelir)")
+                appendLine(r(character.postHistoryInstructions.trim()))
+            }
+        }.trim()
+    }
 
     // ------------------------------------------------------------------
     // Konusma mesajlari
@@ -120,19 +132,26 @@ class PromptBuilder @Inject constructor() {
         message: MessageEntity,
         history: List<MessageEntity>,
         nowMillis: Long,
+        characterName: String,
+        userName: String?,
     ): AiMessage {
         val role = if (message.role == MessageEntity.ROLE_USER) {
             AiMessage.ROLE_USER
         } else {
             AiMessage.ROLE_ASSISTANT
         }
+        val resolved = resolve(message.content, characterName, userName)
         val content = if (message === history.lastOrNull() && role == AiMessage.ROLE_USER) {
-            message.content + gapNotice(history)
+            resolved + gapNotice(history)
         } else {
-            message.content
+            resolved
         }
         return AiMessage(role, content)
     }
+
+    /** Yer tutucu cozumu icin kisa yol (bkz. [Placeholders]). */
+    private fun resolve(text: String, characterName: String, userName: String?): String =
+        Placeholders.resolve(text, characterName, userName)
 
     /**
      * Son mesaj bir kullanici mesajiysa ve ondan onceki mesajla arasinda

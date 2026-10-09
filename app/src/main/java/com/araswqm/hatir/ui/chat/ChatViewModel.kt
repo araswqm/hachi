@@ -4,12 +4,14 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.araswqm.hatir.core.ApplicationScope
+import com.araswqm.hatir.data.ai.Placeholders
 import com.araswqm.hatir.data.chat.ChatRepository
 import com.araswqm.hatir.data.chat.GenEvent
 import com.araswqm.hatir.data.db.entity.CharacterEntity
 import com.araswqm.hatir.data.db.entity.MessageEntity
 import com.araswqm.hatir.data.memory.MemorySummarizer
 import com.araswqm.hatir.data.repo.CharacterRepository
+import com.araswqm.hatir.data.repo.PersonaRepository
 import com.araswqm.hatir.ui.Routes
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -20,7 +22,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
@@ -71,6 +72,7 @@ class ChatViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val characters: CharacterRepository,
     private val chat: ChatRepository,
+    private val personas: PersonaRepository,
     private val summarizer: MemorySummarizer,
     @ApplicationScope private val appScope: CoroutineScope,
     private val json: Json,
@@ -87,9 +89,15 @@ class ChatViewModel @Inject constructor(
         .observeById(characterId)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    private val messages = chat
-        .observeMessages(characterId)
-        .map { rows -> rows.map { it.toUi() } }
+    private val messages = combine(
+        chat.observeMessages(characterId),
+        characters.observeById(characterId),
+        personas.observeSelected(),
+    ) { rows, character, persona ->
+        val characterName = character?.name.orEmpty()
+        val userName = persona?.name
+        rows.map { it.toUi(characterName, userName) }
+    }
 
     val uiState: StateFlow<ChatUiState> =
         combine(messages, generating, streaming, errorState) { list, isGenerating, text, error ->
@@ -208,10 +216,10 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    private fun MessageEntity.toUi(): ChatMessage = ChatMessage(
+    private fun MessageEntity.toUi(characterName: String, userName: String?): ChatMessage = ChatMessage(
         id = id,
         fromUser = role == MessageEntity.ROLE_USER,
-        text = content,
+        text = Placeholders.resolve(content, characterName, userName),
         createdAt = createdAt,
         isProactive = isProactive,
         isError = isError,

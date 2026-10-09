@@ -55,6 +55,7 @@ import com.araswqm.hatir.R
 import com.araswqm.hatir.data.db.entity.CharacterEntity
 import com.araswqm.hatir.data.db.entity.FollowupEntity
 import com.araswqm.hatir.ui.common.CharacterAvatar
+import com.araswqm.hatir.ui.common.MarkdownText
 import com.araswqm.hatir.ui.common.fullDate
 import com.araswqm.hatir.ui.common.shareFile
 import java.io.File
@@ -326,7 +327,7 @@ private fun MemoryTab(memory: String, loading: Boolean, onSave: (String) -> Unit
             )
 
             else -> Card(modifier = Modifier.fillMaxWidth()) {
-                Text(
+                MarkdownText(
                     text = memory,
                     style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.padding(12.dp),
@@ -469,9 +470,16 @@ private fun InfoBlock(label: String, value: String) {
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Text(
-            text = value.ifBlank { stringResource(R.string.detail_card_empty) },
-            style = MaterialTheme.typography.bodyMedium,
-        )
+        if (value.isBlank()) {
+            Text(
+                text = stringResource(R.string.detail_card_empty),
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        } else {
+            MarkdownText(
+                text = value,
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        }
     }
 }

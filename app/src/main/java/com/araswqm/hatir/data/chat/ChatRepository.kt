@@ -6,6 +6,7 @@ import com.araswqm.hatir.data.ai.AiStreamEvent
 import com.araswqm.hatir.data.ai.AiUsage
 import com.araswqm.hatir.data.ai.DeepSeekClient
 import com.araswqm.hatir.data.ai.MissingApiKeyException
+import com.araswqm.hatir.data.ai.Placeholders
 import com.araswqm.hatir.data.ai.PromptBuilder
 import com.araswqm.hatir.data.db.dao.CharacterDao
 import com.araswqm.hatir.data.db.dao.MessageDao
@@ -75,18 +76,24 @@ class ChatRepository @Inject constructor(
     /** Kullanici mesajini ekler ve karakter listesindeki son mesaj zamanini gunceller. */
     suspend fun appendUserMessage(characterId: String, text: String): Long = withContext(io) {
         val now = System.currentTimeMillis()
+        val character = characterDao.getById(characterId)
+        val body = Placeholders.resolve(
+            text = text.trim(),
+            characterName = character?.name.orEmpty(),
+            userName = personaRepository.getSelected()?.name,
+        )
         val id = messageDao.insert(
             MessageEntity(
                 characterId = characterId,
                 role = MessageEntity.ROLE_USER,
-                content = text.trim(),
-                variantsJson = encodeVariants(listOf(text.trim())),
+                content = body,
+                variantsJson = encodeVariants(listOf(body)),
                 createdAt = now,
             ),
         )
         characterDao.touchLastMessage(characterId, now)
         // Kullanici yanit verdi: kendiliğinden mesaj geri-cekilmesini sifirla.
-        characterDao.getById(characterId)?.let { c ->
+        character?.let { c ->
             if (c.lastProactiveUnanswered || c.proactiveBackoffHours > 0.0) {
                 characterDao.upsert(
                     c.copy(lastProactiveUnanswered = false, proactiveBackoffHours = 0.0),
@@ -101,12 +108,17 @@ class ChatRepository @Inject constructor(
         if (messageDao.count(character.id) > 0) return@withContext
         if (character.firstMessage.isBlank()) return@withContext
         val now = System.currentTimeMillis()
+        val body = Placeholders.resolve(
+            text = character.firstMessage.trim(),
+            characterName = character.name,
+            userName = personaRepository.getSelected()?.name,
+        )
         messageDao.insert(
             MessageEntity(
                 characterId = character.id,
                 role = MessageEntity.ROLE_ASSISTANT,
-                content = character.firstMessage.trim(),
-                variantsJson = encodeVariants(listOf(character.firstMessage.trim())),
+                content = body,
+                variantsJson = encodeVariants(listOf(body)),
                 createdAt = now,
             ),
         )

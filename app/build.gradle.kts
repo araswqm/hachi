@@ -37,7 +37,11 @@ if (!hasReleaseKeystore) {
 
 android {
     namespace = "com.araswqm.hatir"
-    compileSdk = 36
+    // compileSdk 37: 2026 AndroidX hatti (Compose 1.12, core 1.19, lifecycle 2.11,
+    // navigation 2.10, coil 3.6) AAR metadata'sinda minimum 37 istiyor.
+    // Hedef CIHAZ degismedi: targetSdk 36 + minSdk 33 (Android 16).
+    // compileSdk yalnizca hangi SDK'ya karsi derlendigimizi belirler.
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.araswqm.hatir"

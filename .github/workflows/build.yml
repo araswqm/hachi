@@ -25,6 +25,14 @@ jobs:
           java-version: '17'
           cache: gradle
 
+      # Bagimliliklar (2026 AndroidX hatti) compileSdk 37 istiyor. Runner'da
+      # hazir olmayabilir; kurulamazsa AGP kendi indirir (best-effort adim).
+      - name: Install Android SDK 37 (best effort)
+        run: |
+          SDK="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+          yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37" \
+            > /dev/null 2>&1 || echo "sdkmanager ile kurulamadi; AGP otomatik indirecek."
+
       # Release imzalama anahtari base64 secret olarak gelir; repoda TUTULMAZ.
       # Secret yoksa dosya olusmaz, build.gradle.kts debug imzasina duser.
       - name: Decode release keystore

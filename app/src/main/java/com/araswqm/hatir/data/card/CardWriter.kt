@@ -7,6 +7,8 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonObjectBuilder
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 
 /**
@@ -19,29 +21,37 @@ import kotlinx.serialization.json.buildJsonObject
 class CardWriter @Inject constructor(private val json: Json) {
 
     fun toV2Json(character: CharacterEntity): String = buildJsonObject {
-        put("spec", SPEC_V2)
-        put("spec_version", SPEC_V2_VERSION)
+        putString("spec", SPEC_V2)
+        putString("spec_version", SPEC_V2_VERSION)
         put("data", buildData(character))
     }.toString()
 
     private fun buildData(character: CharacterEntity): JsonObject = buildJsonObject {
-        put("name", character.name)
-        put("description", character.description)
-        put("personality", character.personality)
-        put("scenario", character.scenario)
-        put("first_mes", character.firstMessage)
-        put("mes_example", character.exampleDialogs)
-        put("creator_notes", character.creatorNotes)
-        put("system_prompt", character.systemPrompt)
-        put("post_history_instructions", character.postHistoryInstructions)
+        putString("name", character.name)
+        putString("description", character.description)
+        putString("personality", character.personality)
+        putString("scenario", character.scenario)
+        putString("first_mes", character.firstMessage)
+        putString("mes_example", character.exampleDialogs)
+        putString("creator_notes", character.creatorNotes)
+        putString("system_prompt", character.systemPrompt)
+        putString("post_history_instructions", character.postHistoryInstructions)
         put("alternate_greetings", parseArray(character.alternateGreetingsJson))
         put("tags", parseArray(character.tagsJson))
-        put("creator", character.creator)
-        put("character_version", character.characterVersion)
+        putString("creator", character.creator)
+        putString("character_version", character.characterVersion)
         character.characterBookJson?.let { raw ->
             (parseElement(raw) as? JsonObject)?.let { put("character_book", it) }
         }
         put("extensions", parseObject(character.extensionsJson))
+    }
+
+    /**
+     * kotlinx.serialization 1.11'de `put(anahtar, String)` kolayligi kaldirildi;
+     * metin degerler acikca [JsonPrimitive] olarak sarilir.
+     */
+    private fun JsonObjectBuilder.putString(key: String, value: String) {
+        put(key, JsonPrimitive(value))
     }
 
     /** Kaydedilmis JSON dizisini oldugu gibi bozar; bozuksa bos dizi dondurur. */

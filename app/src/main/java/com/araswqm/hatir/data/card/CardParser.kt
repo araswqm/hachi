@@ -72,7 +72,8 @@ class CardParser @Inject constructor(private val json: Json) {
 
     private fun JsonObject.has(key: String): Boolean = this[key] != null
 
-    private fun JsonObject.str(key: String): String = (this[key] as? JsonPrimitive).stringOrNull() ?: ""
+    private fun JsonObject.str(key: String): String =
+        (this[key] as? JsonPrimitive)?.stringOrNull().orEmpty()
 
     private fun JsonObject.stringList(key: String): List<String> =
         (this[key] as? JsonArray)

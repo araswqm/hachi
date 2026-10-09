@@ -42,7 +42,7 @@ object PngChunkWriter {
         data.write(text.toByteArray(Charsets.ISO_8859_1))
         val dataBytes = data.toByteArray()
 
-        val typeBytes = TYPE_TEXT.toByteArray(Charsets.US_ASCII)
+        val typeBytes = PngChunkReader.TYPE_TEXT.toByteArray(Charsets.US_ASCII)
         val crc = CRC32()
         crc.update(typeBytes)
         crc.update(dataBytes)

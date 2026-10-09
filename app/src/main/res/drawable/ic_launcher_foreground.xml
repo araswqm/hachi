@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Adaptive icon on plani: 108x108 viewport. Gorunur guvenli alan merkezde
+  72x72 (18..90). Sekil bu alanin icinde kaliyor.
+  Konusma balonu + uc nokta = sohbet; sicak bir "hatira" hissi icin yumusak form.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M40,30 h28 a12,12 0 0 1 12,12 v16 a12,12 0 0 1 -12,12 h-14 l-12,10 v-10 h-2 a12,12 0 0 1 -12,-12 v-16 a12,12 0 0 1 12,-12 z" />
+
+    <path
+        android:fillColor="#6750A4"
+        android:pathData="M42,50 m-3.5,0 a3.5,3.5 0 1 0 7,0 a3.5,3.5 0 1 0 -7,0" />
+    <path
+        android:fillColor="#6750A4"
+        android:pathData="M54,50 m-3.5,0 a3.5,3.5 0 1 0 7,0 a3.5,3.5 0 1 0 -7,0" />
+    <path
+        android:fillColor="#6750A4"
+        android:pathData="M66,50 m-3.5,0 a3.5,3.5 0 1 0 7,0 a3.5,3.5 0 1 0 -7,0" />
+</vector>

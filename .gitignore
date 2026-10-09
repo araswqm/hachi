@@ -1,0 +1,29 @@
+*.iml
+.gradle/
+/local.properties
+/.idea/
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+*.hprof
+
+# Keystore ve sırlar ASLA commit edilmez
+*.jks
+*.keystore
+*.p12
+/keystore/
+/secrets/
+.env
+
+# Build çıktıları
+app/build/
+/app/release/
+*.apk
+*.aab
+
+# İndirilenler / geçici
+/.tmp/
+/artifacts/

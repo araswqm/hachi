@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Compose tek basina arayuzu ciziyor; bu tema yalnizca pencere cercevesini ve
+  sistem cubuklarini ayarlar. Material Components (MDC) bagimliligi olmadigi
+  icin temel olarak platform Material temasini kullaniyoruz.
+  targetSdk 36 (Android 16) ile edge-to-edge zorunlu; saydam cubuklar + Compose
+  tarafindaki WindowInsets yonetimi ile uyumlu.
+-->
+<resources>
+    <style name="Theme.Hatir" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/hatir_window_background</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
+        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
+    </style>
+</resources>

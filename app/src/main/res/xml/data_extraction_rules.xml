@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  API anahtari DataStore'da, Keystore'daki AES-GCM anahtariyla sifreli durur.
+  Keystore anahtari cihazdan cikmadigi icin yedeklenen sifreli veri baska cihazda
+  ise yaramaz; ayrica sizinti riskini azaltmak icin datastore klasorunu
+  yedekleme ve cihaz-aktarim disinda birakiyoruz.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="file" path="datastore/" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="file" path="datastore/" />
+    </device-transfer>
+</data-extraction-rules>

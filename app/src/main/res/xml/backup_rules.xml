@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- minSdk 33 oldugu icin asil kural data_extraction_rules.xml'de; bu dosya eski
+     API'lerle uyum icin duruyor. -->
+<full-backup-content>
+    <exclude domain="file" path="datastore/" />
+</full-backup-content>

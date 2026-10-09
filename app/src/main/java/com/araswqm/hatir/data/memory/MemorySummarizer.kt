@@ -163,7 +163,7 @@ class MemorySummarizer @Inject constructor(
                 .filter { it.metin.isNotBlank() }
                 .forEach { item ->
                     val dueAt = if (item.gunSonra > 0.0) {
-                        now + (item.gunSonra * TimeUnit.HOURS.toMillis(Tuning.HOURS_PER_DAY))
+                        now + (item.gunSonra * TimeUnit.HOURS.toMillis(Tuning.HOURS_PER_DAY)).toLong()
                     } else {
                         null
                     }

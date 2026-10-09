@@ -88,7 +88,16 @@ class ProactiveRepository @Inject constructor(
         val dueFollowups = withContext(io) { followupDao.getDue(character.id, now) }
         val hasDueFollowup = dueFollowups.isNotEmpty()
 
-        val blocked = gate(character, state?.chatState.orEmpty(), level, hasDueFollowup, now)
+        val appSettings = withContext(io) { settings.currentSettings() }
+        val blocked = gate(
+            character = character,
+            chatStateRaw = state?.chatState.orEmpty(),
+            level = level,
+            hasDueFollowup = hasDueFollowup,
+            now = now,
+            dndStartHour = appSettings.dndStartHour,
+            dndEndHour = appSettings.dndEndHour,
+        )
         if (blocked != null) {
             log(
                 characterId = character.id,
@@ -117,6 +126,8 @@ class ProactiveRepository @Inject constructor(
         level: String,
         hasDueFollowup: Boolean,
         now: Long,
+        dndStartHour: Int,
+        dndEndHour: Int,
     ): Pair<String, String>? {
         // 1) Seviye
         if (levelRank(level) < levelRank(Tuning.PROACTIVE_MIN_LEVEL)) {
@@ -131,7 +142,7 @@ class ProactiveRepository @Inject constructor(
         }
 
         // 3) Rahatsiz etme penceresi (cihaz saat diliminde).
-        if (inDndWindow(now, settings.currentSettings().dndStartHour, settings.currentSettings().dndEndHour)) {
+        if (inDndWindow(now, dndStartHour, dndEndHour)) {
             return "dnd" to "Rahatsiz etme penceresi."
         }
 

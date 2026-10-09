@@ -4,7 +4,7 @@ import com.araswqm.hatir.core.Tuning
 
 /** Tek bir hafiza bolumu: baslik + govde. */
 data class MemorySection(val title: String, val body: String) {
-    fun estimatedTokens(): Int = (title.length + body.length) / Tuning.CHARS_PER_TOKEN
+    fun estimatedTokens(): Double = (title.length + body.length) / Tuning.CHARS_PER_TOKEN
 }
 
 /**
@@ -45,7 +45,7 @@ data class MemoryDocument(
         }
     }.trimEnd() + "\n"
 
-    fun estimatedTokens(): Int = toText().length / Tuning.CHARS_PER_TOKEN
+    fun estimatedTokens(): Double = toText().length / Tuning.CHARS_PER_TOKEN
 
     /** Baslik + govdeyi tek bir [MemorySection] olarak sona ekler. */
     fun appending(title: String, body: String): MemoryDocument =
@@ -66,7 +66,7 @@ data class MemoryDocument(
             longTerm.append(remaining.removeAt(idx).body.trim())
         }
 
-        fun remainingTokens(): Int =
+        fun remainingTokens(): Double =
             remaining.sumOf { it.estimatedTokens() } + longTerm.length / Tuning.CHARS_PER_TOKEN
 
         while (remaining.size > 1 && remainingTokens() > Tuning.MEMORY_COMPRESS_KEEP_RECENT_TOKENS) {

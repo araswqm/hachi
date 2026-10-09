@@ -374,7 +374,7 @@ private fun Bubble(
     message: ChatMessage,
     container: androidx.compose.ui.graphics.Color,
     content: androidx.compose.ui.graphics.Color,
-    shape: androidx.compose.ui.shape.Shape,
+    shape: androidx.compose.ui.graphics.Shape,
     onLongPress: () -> Unit,
 ) {
     val currentLongPress by rememberUpdatedState(onLongPress)

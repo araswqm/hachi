@@ -5,7 +5,6 @@ import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.math.max
-import kotlin.math.min
 
 /**
  * Gizli yakinlik (intimacy) puani.
@@ -62,5 +61,8 @@ class IntimacyEngine @Inject constructor() {
 
     /** 0–100 araligina kirpilmis guvenli ham puan. */
     fun clampRaw(value: Double): Int =
-        min(Tuning.INTIMACY_RAW_MAX, max(Tuning.INTIMACY_RAW_MIN, value)).toInt()
+        value.coerceIn(
+            Tuning.INTIMACY_RAW_MIN.toDouble(),
+            Tuning.INTIMACY_RAW_MAX.toDouble(),
+        ).toInt()
 }

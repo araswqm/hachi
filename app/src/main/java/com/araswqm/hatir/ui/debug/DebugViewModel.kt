@@ -83,7 +83,7 @@ class DebugViewModel @Inject constructor(
         DebugUiState(
             intimacy = states.map { intimacyRow(names[it.characterId], it, now) },
             cache = cacheStats.map { cacheRow(names[it.characterId], it) },
-            logs = logs.map(ProactiveLogEntity::toLogRow),
+            logs = logs.map { it.toLogRow() },
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DebugUiState())
 

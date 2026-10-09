@@ -144,7 +144,7 @@ class PromptBuilder @Inject constructor() {
         val last = history[history.size - 1]
         val prev = history[history.size - 2]
         val gapMillis = last.createdAt - prev.createdAt
-        if (gapMillis < TimeUnit.HOURS.toMillis(Tuning.TIME_GAP_NOTICE_HOURS)) return ""
+        if (gapMillis < TimeUnit.HOURS.toMillis(Tuning.TIME_GAP_NOTICE_HOURS.toLong())) return ""
         return "\n[son mesajdan ${humanDuration(gapMillis)} sonra]"
     }
 

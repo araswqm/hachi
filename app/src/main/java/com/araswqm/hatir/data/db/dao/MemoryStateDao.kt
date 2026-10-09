@@ -15,6 +15,10 @@ interface MemoryStateDao {
     @Query("SELECT * FROM memory_state WHERE characterId = :characterId")
     fun observe(characterId: String): Flow<MemoryStateEntity?>
 
+    /** Hata ayiklama ekrani: tum karakterlerin yakinlik durumu. */
+    @Query("SELECT * FROM memory_state")
+    fun observeAll(): Flow<List<MemoryStateEntity>>
+
     @Upsert
     suspend fun upsert(state: MemoryStateEntity)
 

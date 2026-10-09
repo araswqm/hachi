@@ -19,9 +19,17 @@ object Routes {
 
     const val DETAIL_PATTERN = "detail/{characterId}"
 
+    /** Sohbet ekrani. */
+    const val CHAT_PATTERN = "chat/{characterId}"
+
+    /** Gizli hata ayiklama ekrani; Ayarlar'dan erisilir. */
+    const val DEBUG = "debug"
+
     fun editor(characterId: String? = null): String =
         if (characterId.isNullOrBlank()) "editor"
         else "editor?$ARG_CHARACTER_ID=${Uri.encode(characterId)}"
 
     fun detail(characterId: String): String = "detail/${Uri.encode(characterId)}"
+
+    fun chat(characterId: String): String = "chat/${Uri.encode(characterId)}"
 }

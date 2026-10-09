@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -46,10 +47,13 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.araswqm.hatir.BuildConfig
 import com.araswqm.hatir.R
+import com.araswqm.hatir.core.Tuning
 import com.araswqm.hatir.data.settings.ThemeMode
 
 /**
@@ -63,6 +67,7 @@ import com.araswqm.hatir.data.settings.ThemeMode
 @Composable
 fun SettingsScreen(
     onBack: () -> Unit,
+    onOpenDebug: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val settings by viewModel.settings.collectAsStateWithLifecycle()
@@ -71,6 +76,10 @@ fun SettingsScreen(
 
     val context = LocalContext.current
     var apiKeyInput by remember { mutableStateOf("") }
+
+    // Gizli hata ayiklama ekrani: surum satirina DEBUG_UNLOCK_TAPS kez dokununca acilir.
+    var taps by remember { mutableStateOf(0) }
+    var debugVisible by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -275,6 +284,33 @@ fun SettingsScreen(
                     checked = settings.dynamicColor,
                     onCheckedChange = viewModel::setDynamicColor,
                 )
+            }
+
+            // ----------------------------------------------------------
+            // Gizli: Gelistirici (surum satirina N kez dokununca acilir)
+            // ----------------------------------------------------------
+            Spacer(Modifier.height(16.dp))
+
+            Text(
+                text = stringResource(R.string.settings_version, BuildConfig.VERSION_NAME),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        taps += 1
+                        if (taps >= Tuning.DEBUG_UNLOCK_TAPS) debugVisible = true
+                    }
+                    .padding(vertical = 8.dp),
+            )
+
+            if (debugVisible) {
+                SectionDivider()
+                SectionHeader(stringResource(R.string.settings_section_debug))
+                TextButton(onClick = onOpenDebug) {
+                    Text(stringResource(R.string.settings_debug_screen))
+                }
             }
 
             Spacer(Modifier.height(24.dp))

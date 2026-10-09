@@ -60,7 +60,9 @@ import java.io.File
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatsListScreen(
-    onOpenCharacter: (String) -> Unit,
+    onOpenChat: (String) -> Unit,
+    onOpenDetails: (String) -> Unit,
+    onEditCharacter: (String) -> Unit,
     onNewCharacter: () -> Unit,
     onOpenSettings: () -> Unit,
     viewModel: ChatsViewModel = hiltViewModel(),
@@ -109,7 +111,9 @@ fun ChatsListScreen(
                 items(characters, key = { it.id }) { character ->
                     CharacterRow(
                         character = character,
-                        onClick = { onOpenCharacter(character.id) },
+                        onClick = { onOpenChat(character.id) },
+                        onEdit = { onEditCharacter(character.id) },
+                        onDetails = { onOpenDetails(character.id) },
                         onDelete = { pendingDelete = character },
                     )
                 }
@@ -145,6 +149,8 @@ fun ChatsListScreen(
 private fun CharacterRow(
     character: CharacterEntity,
     onClick: () -> Unit,
+    onEdit: () -> Unit,
+    onDetails: () -> Unit,
     onDelete: () -> Unit,
 ) {
     var menuOpen by remember { mutableStateOf(false) }
@@ -215,7 +221,7 @@ private fun CharacterRow(
                 IconButton(onClick = { menuOpen = true }) {
                     Icon(
                         imageVector = Icons.Filled.MoreVert,
-                        contentDescription = stringResource(R.string.action_edit),
+                        contentDescription = stringResource(R.string.cd_more_options),
                     )
                 }
                 DropdownMenu(
@@ -229,7 +235,14 @@ private fun CharacterRow(
                         },
                         onClick = {
                             menuOpen = false
-                            onClick()
+                            onEdit()
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.action_details)) },
+                        onClick = {
+                            menuOpen = false
+                            onDetails()
                         },
                     )
                     DropdownMenuItem(

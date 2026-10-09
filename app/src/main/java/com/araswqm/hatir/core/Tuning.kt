@@ -24,6 +24,9 @@ object Tuning {
      */
     const val TIME_GAP_NOTICE_HOURS = 1
 
+    /** Bir gundeki saat sayisi (gun<->saat cevrimleri icin). */
+    const val HOURS_PER_DAY = 24L
+
     /** Varsayilan yaratıcılık (temperature). Karakter bazinda degistirilebilir. */
     const val DEFAULT_TEMPERATURE = 1.0f
 
@@ -44,6 +47,13 @@ object Tuning {
     /** Ozetleyici ve karar cagrilari icin daha kisa yanit yeterli. */
     const val SUMMARY_MAX_TOKENS = 2048
     const val DECISION_MAX_TOKENS = 512
+
+    /**
+     * Ozetleyici ve karar cagrilari daha tutarli cikti versin diye
+     * yaraticilik dusuk tutulur (sohbet sicakligi karakter bazinda).
+     */
+    const val SUMMARY_TEMPERATURE = 0.4f
+    const val DECISION_TEMPERATURE = 0.6f
 
     /** Dusunme modu kapali oldugu icin top_p sabittir (1.0); istemde gonderilmez. */
     const val TOP_P_FIXED = 1.0
@@ -88,6 +98,25 @@ object Tuning {
 
     /** Hafiza .md dosyasinda kullanici tarafindan kilitlenen satirin isareti. */
     const val MEMORY_LOCK_MARKER = "🔒" // 🔒
+
+    /** Bir ozetleme cagrisina girecek en fazla bekleyen mesaj sayisi. */
+    const val MEMORY_PENDING_MESSAGES_LIMIT = 60
+
+    /** Ozetleyicinin urettigi alanlarin kirpilma uzunluklari (karakter). */
+    const val MEMORY_CHARACTER_FEELING_MAX_CHARS = 500
+    const val MEMORY_FOLLOWUP_TEXT_MAX_CHARS = 300
+
+    /**
+     * Ham yakinlik gecmisinin saklanan uzunlugu, hareketli ortalama
+     * penceresinin kac kati olacak.
+     */
+    const val MEMORY_RAW_HISTORY_RETENTION_MULTIPLIER = 3
+
+    /**
+     * `MemoryStateEntity.chatState` icinde tasinan "sohbet nerede kaldi"
+     * aciklamasinin ust siniri (karakter).
+     */
+    const val CHAT_STATE_MAX_DESCRIPTION_CHARS = 500
 
     // ---------------------------------------------------------------------
     // Gizli yakinlik (intimacy) motoru
@@ -163,6 +192,9 @@ object Tuning {
     /** Sadece bu seviye ve uzeri karakterler kendiliğinden yazabilir. */
     const val PROACTIVE_MIN_LEVEL = "Arkadaş"
 
+    /** Hata ayiklama kaydindaki `reason` alaninin kirpilma uzunlugu. */
+    const val PROACTIVE_LOG_REASON_MAX_CHARS = 500
+
     // ---------------------------------------------------------------------
     // Karakter karti (PNG) okuyucu
     // ---------------------------------------------------------------------
@@ -185,11 +217,21 @@ object Tuning {
     /** SSE akisinda ust sinir; takilan baglantiyi kesmek icin. */
     const val STREAM_MAX_DURATION_SECONDS = 300L
 
+    /** Hata mesajlarina gomulen sunucu detayi / ham yanitin kirpilma uzunlugu. */
+    const val AI_ERROR_DETAIL_MAX_CHARS = 300
+    const val AI_ERROR_RAW_MAX_CHARS = 200
+
     // ---------------------------------------------------------------------
     // Bildirim ve arka plan
     // ---------------------------------------------------------------------
 
     const val NOTIFICATION_ID_BASE = 1000
+
+    /** Hata ayiklama ekraninda listelenen kayit sayisi. */
+    const val DEBUG_LOG_LIMIT = 50
+
+    /** Gizli hata ayiklama ekranini acmak icin surum satirina dokunma sayisi. */
+    const val DEBUG_UNLOCK_TAPS = 5
 
     /** onStop ozetlemesi icin OneTimeWorkRequest backoff ayarlari. */
     const val ONSTOP_SUMMARY_BACKOFF_SECONDS = 30L

@@ -20,6 +20,7 @@
     <string name="action_confirm">Onayla</string>
     <string name="action_ok">Tamam</string>
     <string name="action_back">Geri</string>
+    <string name="action_details">Ayrıntılar</string>
 
     <!-- Sohbet listesi -->
     <string name="chats_title">Sohbetler</string>
@@ -40,6 +41,11 @@
     <string name="chat_error_generic">Yanıt alınamadı. Tekrar dener misin?</string>
     <string name="chat_error_no_api_key">Önce Ayarlar\'dan DeepSeek API anahtarını gir.</string>
     <string name="chat_proactive_badge">Kendiliğinden yazdı</string>
+    <string name="chat_typing">%1$s yazıyor…</string>
+    <string name="chat_copied">Mesaj kopyalandı</string>
+    <string name="chat_error_detail">Ayrıntı: %1$s</string>
+    <string name="chat_actions_title">Mesaj</string>
+    <string name="chat_open_settings">Ayarlar</string>
 
     <!-- Karakter düzenleyici -->
     <string name="editor_title_new">Yeni karakter</string>
@@ -125,6 +131,12 @@
     <string name="debug_intimacy">Yakınlık puanları</string>
     <string name="debug_proactive_log">Kendiliğinden mesaj günlüğü</string>
     <string name="debug_cache_tokens">Önbellek (hit / miss)</string>
+    <string name="debug_empty">Gösterilecek kayıt yok.</string>
+    <string name="debug_deleted_character">Silinmiş karakter</string>
+    <string name="debug_intimacy_line">%1$s — %2$s (ham %3$d, son 5 ort. %4$s)</string>
+    <string name="debug_cache_line">%1$s — hit %2$d / miss %3$d (%4$d istek)</string>
+    <string name="debug_log_entry">%1$s · %2$s / %3$s</string>
+    <string name="settings_version">Hatır %1$s</string>
 
     <!-- Bildirim -->
     <string name="notif_channel_name">Karakter mesajları</string>
@@ -134,4 +146,7 @@
     <string name="cd_character_avatar">Karakter resmi</string>
     <string name="cd_persona_avatar">Persona resmi</string>
     <string name="cd_unread">Okunmamış</string>
+    <string name="cd_more_options">Diğer seçenekler</string>
+    <string name="cd_variant_previous">Önceki varyant</string>
+    <string name="cd_variant_next">Sonraki varyant</string>
 </resources>

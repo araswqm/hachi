@@ -7,6 +7,18 @@ import androidx.room.Update
 import com.araswqm.hatir.data.db.entity.MessageEntity
 import kotlinx.coroutines.flow.Flow
 
+/**
+ * Karakter bazli onbellek kullanimi ozeti. Yalnizca hata ayiklama ekrani okur;
+ * [requests] prompt token'i raporlanmis (yani gercek bir API cagrisi olan)
+ * mesaj sayisidir.
+ */
+data class CacheStatRow(
+    val characterId: String,
+    val hit: Long,
+    val miss: Long,
+    val requests: Long,
+)
+
 @Dao
 interface MessageDao {
 
@@ -67,4 +79,18 @@ interface MessageDao {
 
     @Query("SELECT COUNT(*) FROM messages WHERE characterId = :characterId AND isUnread = 1")
     fun observeUnreadCount(characterId: String): Flow<Int>
+
+    /** Hata ayiklama ekrani: karakter bazli onbellek isabeti. */
+    @Query(
+        """
+        SELECT characterId AS characterId,
+               COALESCE(SUM(cacheHitTokens), 0) AS hit,
+               COALESCE(SUM(cacheMissTokens), 0) AS miss,
+               COUNT(promptTokens) AS requests
+        FROM messages
+        GROUP BY characterId
+        ORDER BY requests DESC
+        """,
+    )
+    fun observeCacheStats(): Flow<List<CacheStatRow>>
 }

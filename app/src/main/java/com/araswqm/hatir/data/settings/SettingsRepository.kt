@@ -75,6 +75,9 @@ class SettingsRepository @Inject constructor(
 
     suspend fun currentApiKey(): String? = withContext(io) { apiKey.first() }
 
+    /** Anlik ayar goruntusu; arka plan isleri ve prompt kurucu icin. */
+    suspend fun currentSettings(): AppSettings = withContext(io) { settings.first() }
+
     suspend fun setApiKey(value: String) = withContext(io) {
         store.edit { prefs ->
             val trimmed = value.trim()

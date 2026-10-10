@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Hatır</string>
+    <string name="app_name">Hachi</string>
 
     <!-- Ana gezinme -->
     <string name="nav_chats">Sohbetler</string>
@@ -115,7 +115,7 @@
     <string name="settings_dnd_start">Başlangıç</string>
     <string name="settings_dnd_end">Bitiş</string>
     <string name="settings_battery_title">Arka planda çalışma</string>
-    <string name="settings_battery_body">Kendiliğinden mesajların zamanında gelmesi için Hatır\'ın pil optimizasyonundan muaf tutulması önerilir.</string>
+    <string name="settings_battery_body">Kendiliğinden mesajların zamanında gelmesi için Hachi\'nin pil optimizasyonundan muaf tutulması önerilir.</string>
     <string name="settings_battery_action">Pil optimizasyonundan muaf tut</string>
     <string name="settings_section_appearance">Görünüm</string>
     <string name="settings_theme">Tema</string>
@@ -123,6 +123,7 @@
     <string name="settings_theme_light">Açık</string>
     <string name="settings_theme_dark">Koyu</string>
     <string name="settings_dynamic_color">Dinamik renk</string>
+    <string name="settings_night_owl_desc">Gözü yormayan, OLED siyahı arka plan ve açık renkli yazılar</string>
     <string name="settings_section_debug">Geliştirici</string>
     <string name="settings_debug_screen">Hata ayıklama ekranı</string>
 
@@ -136,7 +137,7 @@
     <string name="debug_intimacy_line">%1$s — %2$s (ham %3$d, son 5 ort. %4$s)</string>
     <string name="debug_cache_line">%1$s — hit %2$d / miss %3$d (%4$d istek)</string>
     <string name="debug_log_entry">%1$s · %2$s / %3$s</string>
-    <string name="settings_version">Hatır %1$s</string>
+    <string name="settings_version">Hachi %1$s</string>
 
     <!-- Bildirim -->
     <string name="notif_channel_name">Karakter mesajları</string>

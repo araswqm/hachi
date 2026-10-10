@@ -10,7 +10,7 @@
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
     <application
-        android:name=".HatirApp"
+        android:name=".HachiApp"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
@@ -19,7 +19,7 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:enableOnBackInvokedCallback="true"
-        android:theme="@style/Theme.Hatir"
+        android:theme="@style/Theme.Hachi"
         tools:targetApi="36">
 
         <activity
@@ -28,7 +28,7 @@
             android:launchMode="singleTop"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|uiMode"
             android:windowSoftInputMode="adjustResize"
-            android:theme="@style/Theme.Hatir">
+            android:theme="@style/Theme.Hachi">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -36,7 +36,7 @@
         </activity>
 
         <!--
-          WorkManager'i varsayilan baslaticidan cikar; HatirApp Configuration.Provider
+          WorkManager'i varsayilan baslaticidan cikar; HachiApp Configuration.Provider
           uzerinden HiltWorkerFactory'yi sagliyor. Aksi halde @HiltWorker'lar
           NoSuchMethodException ile coker.
         -->

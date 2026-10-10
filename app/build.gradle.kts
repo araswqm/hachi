@@ -30,13 +30,13 @@ val hasReleaseKeystore: Boolean =
 
 if (!hasReleaseKeystore) {
     logger.lifecycle(
-        "[Hatir] Release keystore bulunamadi (HATIR_* ortam degiskenleri). " +
+        "[Hachi] Release keystore bulunamadi (HATIR_* ortam degiskenleri). " +
             "Release derlemesi debug anahtariyla imzalanacak.",
     )
 }
 
 android {
-    namespace = "com.araswqm.hatir"
+    namespace = "com.araswqm.hachi"
     // compileSdk 37: 2026 AndroidX hatti (Compose 1.12, core 1.19, lifecycle 2.11,
     // navigation 2.10, coil 3.6) AAR metadata'sinda minimum 37 istiyor.
     // Hedef CIHAZ degismedi: targetSdk 36 + minSdk 33 (Android 16).
@@ -44,7 +44,7 @@ android {
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "com.araswqm.hatir"
+        applicationId = "com.araswqm.hachi"
         minSdk = 33
         targetSdk = 36
         versionCode = 1

@@ -36,7 +36,10 @@ import kotlinx.coroutines.flow.callbackFlow
  */
 @Singleton
 class LlmRouter @Inject constructor(
-    private val providers: Map<ProviderId, AiProvider>,
+    // `@JvmSuppressWildcards` sart: Kotlin'in `Map<K, out V>` varyansi aksi halde
+    // telde `Map<K, ? extends V>` olur ve Dagger'in `@IntoMap` coklu baglamasi
+    // (tam `Map<K, V>`) bu isteğe uymaz → MissingBinding.
+    private val providers: Map<ProviderId, @JvmSuppressWildcards AiProvider>,
     private val settings: SettingsRepository,
 ) {
 

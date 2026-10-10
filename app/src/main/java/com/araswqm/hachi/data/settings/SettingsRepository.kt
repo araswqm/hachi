@@ -262,7 +262,7 @@ class SettingsRepository @Inject constructor(
         val KEY_THEME = stringPreferencesKey("theme_mode")
         val KEY_DYNAMIC_COLOR = booleanPreferencesKey("dynamic_color")
         val KEY_NIGHT_OWL = booleanPreferencesKey("night_owl")
-        val KEY_HAPTICS = stringPreferencesKey("haptics_enabled")
+        val KEY_HAPTICS = booleanPreferencesKey("haptics_enabled")
         val KEY_NOTIF_ASKED = booleanPreferencesKey("notif_permission_asked")
         val KEY_LANGUAGE = stringPreferencesKey("language_tag")
         val KEY_PROVIDER_ORDER = stringPreferencesKey("provider_order")

@@ -60,7 +60,7 @@ class PersonasViewModel @Inject constructor(
                     context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
                 }.getOrNull()
             }
-            if (!bytes.isNullOrEmpty()) personas.setAvatar(id, bytes)
+            if (bytes != null && bytes.isNotEmpty()) personas.setAvatar(id, bytes)
         }
     }
 

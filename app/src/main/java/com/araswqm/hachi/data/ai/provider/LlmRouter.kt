@@ -119,14 +119,13 @@ class LlmRouter @Inject constructor(
                         }
 
                         is AiStreamEvent.Usage -> trySend(event)
-                        is AiStreamEvent.Done -> {
-                            trySend(event)
-                            close()
-                            return@callbackFlow
-                        }
+                        // `Done` yayilir; saglayicinin akisi bunun ardindan biter,
+                        // dolayisiyla asagida zincir sonlanir (ic lambdadan
+                        // `return@callbackFlow` yasak oldugu icin burada donulmez).
+                        is AiStreamEvent.Done -> trySend(event)
                     }
                 }
-                // Akis hatasiz bitti ama `Done` gelmediyse yine de kapat.
+                // Akis hatasiz bitti: `Done` gelse de gelmese de zincir burada durur.
                 close()
                 return@callbackFlow
             } catch (e: Throwable) {

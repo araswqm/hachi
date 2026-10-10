@@ -3,8 +3,10 @@ package com.araswqm.hachi.data.memory
 import com.araswqm.hachi.core.IoDispatcher
 import com.araswqm.hachi.core.Tuning
 import com.araswqm.hachi.data.ai.AiMessage
-import com.araswqm.hachi.data.ai.DeepSeekClient
+import com.araswqm.hachi.data.ai.ENGLISH_OUTPUT_ONLY
 import com.araswqm.hachi.data.ai.PromptBuilder
+import com.araswqm.hachi.data.ai.provider.LlmRouter
+import com.araswqm.hachi.data.ai.provider.ModelRole
 import com.araswqm.hachi.data.db.dao.CharacterDao
 import com.araswqm.hachi.data.db.dao.FollowupDao
 import com.araswqm.hachi.data.db.dao.MemoryStateDao
@@ -13,7 +15,6 @@ import com.araswqm.hachi.data.db.entity.FollowupEntity
 import com.araswqm.hachi.data.db.entity.MemoryStateEntity
 import com.araswqm.hachi.data.db.entity.MessageEntity
 import com.araswqm.hachi.data.repo.MemoryRepository
-import com.araswqm.hachi.data.settings.SettingsRepository
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
@@ -28,21 +29,26 @@ import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
-/** Ozetleyicinin urettigi JSON yaniti. */
+/**
+ * Ozetleyicinin urettigi JSON yaniti.
+ *
+ * Alan adlari Ingilizcedir (§2.2): hafiza verisi daima Ingilizce tutulur,
+ * arayuz dili ne olursa olsun.
+ */
 @Serializable
 private data class SummaryResponse(
-    val ozet: String = "",
-    val samimiyet: Double = 0.0,
-    @SerialName("sohbet_durumu") val sohbetDurumu: String = "",
-    @SerialName("karakter_duygusu") val karakterDuygusu: String = "",
-    @SerialName("sohbet_kapandi") val sohbetKapandi: Boolean = false,
-    @SerialName("takip_konulari") val takipKonulari: List<FollowupItem> = emptyList(),
+    val summary: String = "",
+    val intimacy: Double = 0.0,
+    @SerialName("chat_state") val chatState: String = "",
+    @SerialName("character_feeling") val characterFeeling: String = "",
+    @SerialName("chat_closed") val chatClosed: Boolean = false,
+    val followups: List<FollowupItem> = emptyList(),
 )
 
 @Serializable
 private data class FollowupItem(
-    val metin: String = "",
-    @SerialName("gun_sonra") val gunSonra: Double = 0.0,
+    val text: String = "",
+    @SerialName("in_days") val inDays: Double = 0.0,
 )
 
 /**
@@ -63,8 +69,7 @@ class MemorySummarizer @Inject constructor(
     private val memoryDao: MemoryStateDao,
     private val followupDao: FollowupDao,
     private val memoryRepository: MemoryRepository,
-    private val settings: SettingsRepository,
-    private val client: DeepSeekClient,
+    private val router: LlmRouter,
     private val promptBuilder: PromptBuilder,
     private val intimacy: IntimacyEngine,
     private val json: Json,
@@ -92,6 +97,68 @@ class MemorySummarizer @Inject constructor(
         return lock.withLock { runSummary(characterId, force) }
     }
 
+    /**
+     * §2.1 — silme / varyant degisimi sonrasi hafiza senkronu.
+     *
+     * [affectedMessageId] silinen ya da icerigi degisen mesajdir. Mesaj zaten
+     * ozetlenmis bolgeye aitse (`id <= lastSummarizedMessageId`), hafiza "olmus
+     * gibi" kabul edilemez: imlec o mesajdan onceye cekilir, uretilmis bolumler
+     * tek bir uzun vadeli bloka indirilir ve kuyruk bastan ozetlenir. Kilitli
+     * kullanici notlari (`🔒`) korunur.
+     *
+     * Mesaj henuz ozetlenmemisse imlec degismez; cagiran taraf yalnizca satiri
+     * silmis olur ve bu yontem false doner.
+     */
+    suspend fun rebuildFrom(characterId: String, affectedMessageId: Long): Boolean {
+        val lock = lockFor(characterId)
+        // Kilit tutulurken mutex YENIDEN alinamaz (Kotlin mutex'i yeniden girmez);
+        // bu yuzden icte dogrudan runSummary cagrilir.
+        return lock.withLock {
+            val state = withContext(io) { memoryDao.get(characterId) } ?: return@withLock false
+            if (affectedMessageId > state.lastSummarizedMessageId) return@withLock false
+
+            val existing = withContext(io) { memoryRepository.read(characterId) }
+            val doc = MemoryDocument.parse(existing)
+            val newCursor = withContext(io) {
+                messageDao.lastIdBefore(characterId, affectedMessageId)
+            } ?: 0L
+
+            // Uretilmis bolumler silinen mesaji da iceriyor olabilir; hangisinin
+            // hangi mesaja karsilik geldigi guvenilir sekilde bilinemez. Bu yuzden
+            // hepsi tek bir uzun vadeli bloga indirilir (yeni detayli ozetler
+            // uzerine taze bolumler olarak eklenir) ve kuyruk yeniden ozetlenir.
+            val collapsed = doc.copy(
+                relationship = "",
+                sections = doc.sections
+                    .flatMap { it.body.trim().lines() }
+                    .filter { it.isNotBlank() }
+                    .joinToString("\n")
+                    .let { body ->
+                        if (body.isBlank()) {
+                            emptyList()
+                        } else {
+                            listOf(MemorySection(MemoryDocument.LONG_TERM_TITLE, body))
+                        }
+                    },
+            )
+
+            withContext(io) {
+                memoryRepository.write(characterId, collapsed.toText())
+                memoryDao.upsert(
+                    state.copy(
+                        lastSummarizedMessageId = newCursor,
+                        summarizedMessageCount = messageDao.countUpTo(characterId, newCursor),
+                        sectionCount = collapsed.sections.size,
+                        updatedAt = System.currentTimeMillis(),
+                    ),
+                )
+            }
+
+            runSummary(characterId, force = true)
+            true
+        }
+    }
+
     private suspend fun runSummary(characterId: String, force: Boolean): Boolean {
         val character = withContext(io) { characterDao.getById(characterId) } ?: return false
         val state = withContext(io) { memoryDao.get(characterId) } ?: MemoryStateEntity(characterId = characterId)
@@ -102,11 +169,10 @@ class MemorySummarizer @Inject constructor(
         if (!force && pending.size < Tuning.SUMMARY_EVERY_MESSAGES) return false
 
         val existing = withContext(io) { memoryRepository.read(characterId) }
-        val model = withContext(io) { settings.currentSettings().modelSummary }
 
         val response = try {
-            val result = client.complete(
-                model = model,
+            val result = router.complete(
+                role = ModelRole.SUMMARY,
                 messages = buildMessages(character.name, existing, pending),
                 temperature = Tuning.SUMMARY_TEMPERATURE,
                 maxTokens = Tuning.SUMMARY_MAX_TOKENS,
@@ -117,25 +183,24 @@ class MemorySummarizer @Inject constructor(
             return false
         }
 
-        if (response.ozet.isBlank() && response.samimiyet <= 0.0) return false
+        if (response.summary.isBlank() && response.intimacy <= 0.0) return false
 
         val now = System.currentTimeMillis()
-        val startIndex = state.summarizedMessageCount + 1
-        val endIndex = state.summarizedMessageCount + pending.size
-        val title = "Bölüm ${state.sectionCount + 1} (mesaj $startIndex–$endIndex)"
+        val title = "Session ${state.sectionCount + 1}"
 
         val document = MemoryDocument.parse(existing)
             .let { doc ->
-                if (response.ozet.isNotBlank()) doc.appending(title, response.ozet) else doc
+                if (response.summary.isNotBlank()) doc.appending(title, response.summary) else doc
             }
             .let { doc -> doc.copy(relationship = relationshipBlock(response)) }
             .compressed()
+            .let { doc -> shrinkLongTerm(doc) }
 
         withContext(io) {
             memoryRepository.write(characterId, document.toText())
 
             val rawHistory = decodeInts(state.intimacyRawHistoryJson) +
-                intimacy.clampRaw(response.samimiyet)
+                intimacy.clampRaw(response.intimacy)
             val window = rawHistory.takeLast(Tuning.INTIMACY_MOVING_AVERAGE_WINDOW)
             val messageCount = messageDao.count(characterId)
             val streakDays = streakDays(pending)
@@ -153,24 +218,24 @@ class MemorySummarizer @Inject constructor(
                         ),
                     ),
                     lastDecayAt = now,
-                    chatState = ChatState(response.sohbetKapandi, response.sohbetDurumu).encode(),
-                    characterFeeling = response.karakterDuygusu.take(Tuning.MEMORY_CHARACTER_FEELING_MAX_CHARS),
+                    chatState = ChatState(response.chatClosed, response.chatState).encode(),
+                    characterFeeling = response.characterFeeling.take(Tuning.MEMORY_CHARACTER_FEELING_MAX_CHARS),
                     updatedAt = now,
                 ),
             )
 
-            response.takipKonulari
-                .filter { it.metin.isNotBlank() }
+            response.followups
+                .filter { it.text.isNotBlank() }
                 .forEach { item ->
-                    val dueAt = if (item.gunSonra > 0.0) {
-                        now + (item.gunSonra * TimeUnit.HOURS.toMillis(Tuning.HOURS_PER_DAY)).toLong()
+                    val dueAt = if (item.inDays > 0.0) {
+                        now + (item.inDays * TimeUnit.HOURS.toMillis(Tuning.HOURS_PER_DAY)).toLong()
                     } else {
                         null
                     }
                     followupDao.insert(
                         FollowupEntity(
                             characterId = characterId,
-                            text = item.metin.trim().take(Tuning.MEMORY_FOLLOWUP_TEXT_MAX_CHARS),
+                            text = item.text.trim().take(Tuning.MEMORY_FOLLOWUP_TEXT_MAX_CHARS),
                             dueAt = dueAt,
                             createdAt = now,
                         ),
@@ -190,39 +255,40 @@ class MemorySummarizer @Inject constructor(
         pending: List<MessageEntity>,
     ): List<AiMessage> {
         val system = buildString {
-            appendLine("# GÖREV")
+            appendLine("# TASK")
             appendLine(
-                "$characterName adlı karakter ile kullanıcı arasındaki sohbetin yeni bölümünü, " +
-                    "karakterin kalıcı hafızasına eklenecek bir nota dönüştürüyorsun.",
+                "You turn the newest chapter of the conversation between the character " +
+                    "\"$characterName\" and the user into a note appended to the character's " +
+                    "persistent memory.",
             )
             appendLine()
-            appendLine("# KURALLAR")
-            appendLine("- Türkçe yaz.")
-            appendLine("- Yalnızca verilen mesajlara dayan; olmayan bir şeyi uydurma.")
-            appendLine("- Yanıtı SADECE geçerli bir JSON nesnesi olarak ver; açıklama ekleme.")
-            appendLine("- 'samimiyet' alanı 0–100 arası bir tam sayıdır: 0 = tamamen yabancı, 100 = derin yakınlık.")
+            appendLine("# RULES")
+            appendLine("- $ENGLISH_OUTPUT_ONLY")
+            appendLine("- Rely only on the messages provided; never invent anything.")
+            appendLine("- Return ONLY a valid JSON object; add no explanation.")
+            appendLine("- 'intimacy' is an integer from 0 to 100: 0 = complete strangers, 100 = deep closeness.")
         }.trim()
 
         val user = buildString {
-            appendLine("## Mevcut hafıza (varsa)")
-            appendLine(existing.ifBlank { "(boş)" })
+            appendLine("## Existing memory (if any)")
+            appendLine(existing.ifBlank { "(empty)" })
             appendLine()
-            appendLine("## Özetlenecek yeni mesajlar")
+            appendLine("## New messages to summarize")
             pending.forEach { message ->
-                val who = if (message.role == MessageEntity.ROLE_USER) "Kullanıcı" else characterName
+                val who = if (message.role == MessageEntity.ROLE_USER) "User" else characterName
                 appendLine("$who: ${message.content}")
             }
             appendLine()
-            appendLine("## İstenen JSON biçimi")
+            appendLine("## Required JSON shape")
             appendLine(
                 """
                 {
-                  "ozet": "bu bölümün Türkçe, madde madde özeti",
-                  "samimiyet": 55,
-                  "sohbet_durumu": "konuşmanın şu an nerede kaldığı, çok kısa",
-                  "karakter_duygusu": "$characterName karakterin kullanıcıya dair hissi, çok kısa",
-                  "sohbet_kapandi": true,
-                  "takip_konulari": [{"metin": "ileride sorulacak konu", "gun_sonra": 2.5}]
+                  "summary": "bullet-point summary of this chapter, in English",
+                  "intimacy": 55,
+                  "chat_state": "where the conversation currently stands, very short, in English",
+                  "character_feeling": "how $characterName feels about the user, very short, in English",
+                  "chat_closed": true,
+                  "followups": [{"text": "topic to bring up later, in English", "in_days": 2.5}]
                 }
                 """.trimIndent(),
             )
@@ -232,16 +298,49 @@ class MemorySummarizer @Inject constructor(
     }
 
     private fun relationshipBlock(response: SummaryResponse): String = buildString {
-        appendLine("## İlişki Durumu")
-        val raw = intimacy.clampRaw(response.samimiyet)
-        appendLine("- Samimiyet: $raw/100 (${intimacy.level(raw.toDouble())})")
-        if (response.sohbetDurumu.isNotBlank()) {
-            appendLine("- Sohbet durumu: ${response.sohbetDurumu.trim()}")
+        appendLine("## Relationship Status")
+        val raw = intimacy.clampRaw(response.intimacy)
+        appendLine("- Intimacy: $raw/100 (${intimacy.level(raw.toDouble()).label})")
+        if (response.chatState.isNotBlank()) {
+            appendLine("- Conversation state: ${response.chatState.trim()}")
         }
-        if (response.karakterDuygusu.isNotBlank()) {
-            appendLine("- ${response.karakterDuygusu.trim()}")
+        if (response.characterFeeling.isNotBlank()) {
+            appendLine("- ${response.characterFeeling.trim()}")
         }
     }.trim()
+
+    /**
+     * §2.1 sinirsiz hafiza: uzun vadeli blok esigi asinca "sadece birlestir" ile
+     * buyumeye devam etmesin. Blok, LLM ile yeniden ozetlenerek sabit-kisa bir
+     * cekirdege indirilir. Hata olursa (ag, anahtar yok) blok oldugu gibi kalir;
+     * ozetleme zaten basarili sayilir — kayip veri yok, sadece sikistirma atlanir.
+     */
+    private suspend fun shrinkLongTerm(doc: MemoryDocument): MemoryDocument {
+        val longTerm = doc.sections.firstOrNull { it.title == MemoryDocument.LONG_TERM_TITLE }
+            ?: return doc
+        if (longTerm.estimatedTokens() <= Tuning.MEMORY_LONG_TERM_MAX_TOKENS) return doc
+
+        val shrunk = try {
+            router.complete(
+                role = ModelRole.SUMMARY,
+                messages = listOf(
+                    AiMessage.system(
+                        "You compress long-term memory notes into one concise, information-dense " +
+                            "summary. Keep names, facts, promises, preferences and unresolved " +
+                            "threads. Drop filler. $ENGLISH_OUTPUT_ONLY",
+                    ),
+                    AiMessage.user(longTerm.body),
+                ),
+                temperature = Tuning.SUMMARY_TEMPERATURE,
+                maxTokens = Tuning.MEMORY_LONG_TERM_MAX_TOKENS,
+            ).text.trim()
+        } catch (e: Throwable) {
+            return doc
+        }
+
+        if (shrunk.isBlank()) return doc
+        return doc.withSection(MemoryDocument.LONG_TERM_TITLE, shrunk)
+    }
 
     // ------------------------------------------------------------------
     // Yardimcilar

@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Astroid (taslak asistani) simgesi: elle cizilmis parildama (sparkle).
+  material-icons-extended bagimliligi EKLENMEZ; bu yuzden vektor burada durur.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+
+    <!-- Buyuk parildama (sol-alt merkezli) -->
+    <path
+        android:fillColor="@android:color/white"
+        android:pathData="M9,2 L10.6,7.4 L16,9 L10.6,10.6 L9,16 L7.4,10.6 L2,9 L7.4,7.4 Z" />
+
+    <!-- Orta parildama (sag-alt) -->
+    <path
+        android:fillColor="@android:color/white"
+        android:pathData="M17.5,12.5 L18.5,15.5 L21.5,16.5 L18.5,17.5 L17.5,20.5 L16.5,17.5 L13.5,16.5 L16.5,15.5 Z" />
+
+    <!-- Kucuk parildama (sag-ust) -->
+    <path
+        android:fillColor="@android:color/white"
+        android:pathData="M17.5,2.5 L18.1,4.4 L20,5 L18.1,5.6 L17.5,7.5 L16.9,5.6 L15,5 L16.9,4.4 Z" />
+</vector>

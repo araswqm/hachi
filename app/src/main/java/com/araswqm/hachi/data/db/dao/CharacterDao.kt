@@ -43,6 +43,10 @@ interface CharacterDao {
     @Query("UPDATE characters SET unreadCount = :count WHERE id = :id")
     suspend fun setUnreadCount(id: String, count: Int)
 
+    /** Persona silindiginde ona bagli sohbetleri varsayilana dondurur (§3). */
+    @Query("UPDATE characters SET personaId = NULL WHERE personaId = :personaId")
+    suspend fun clearPersona(personaId: String)
+
     // ------------------------------------------------------------------
     // Kendiliğinden mesaj zamanlayicisi
     // ------------------------------------------------------------------

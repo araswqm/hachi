@@ -52,6 +52,19 @@ interface MessageDao {
     @Query("SELECT COUNT(*) FROM messages WHERE characterId = :characterId AND id > :afterId")
     suspend fun countAfter(characterId: String, afterId: Long): Int
 
+    /**
+     * §2.1 — [beforeId]'den onceki en buyuk mesaj id'si; yoksa null.
+     * Silme sonrasi ozetleme imlecini guvenli bir noktaya cekmek icin kullanilir.
+     */
+    @Query(
+        "SELECT MAX(id) FROM messages WHERE characterId = :characterId AND id < :beforeId",
+    )
+    suspend fun lastIdBefore(characterId: String, beforeId: Long): Long?
+
+    /** §2.1 — [maxId] dahil olmak uzere ozetlenmis sayisi. */
+    @Query("SELECT COUNT(*) FROM messages WHERE characterId = :characterId AND id <= :maxId")
+    suspend fun countUpTo(characterId: String, maxId: Long): Int
+
     /** Karakterin son mesajini bulmak icin (zaman farki notu). */
     @Query(
         "SELECT * FROM messages WHERE characterId = :characterId " +

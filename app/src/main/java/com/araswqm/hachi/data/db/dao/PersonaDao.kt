@@ -21,6 +21,13 @@ interface PersonaDao {
     @Query("SELECT * FROM personas WHERE id = :id")
     suspend fun getById(id: String): PersonaEntity?
 
+    /** Listenin ilk personası (en eskisi); silme sonrasi varsayilan secimi icin. */
+    @Query("SELECT * FROM personas ORDER BY createdAt ASC LIMIT 1")
+    suspend fun getFirst(): PersonaEntity?
+
+    @Query("SELECT * FROM personas WHERE id = :id")
+    fun observeById(id: String): Flow<PersonaEntity?>
+
     @Upsert
     suspend fun upsert(persona: PersonaEntity)
 

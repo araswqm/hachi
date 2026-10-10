@@ -1,13 +1,15 @@
 package com.araswqm.hachi.data.proactive
 
+import com.araswqm.hachi.core.IntimacyLevel
 import com.araswqm.hachi.core.IoDispatcher
 import com.araswqm.hachi.core.Tuning
 import com.araswqm.hachi.data.ai.AiMessage
 import com.araswqm.hachi.data.ai.AiUsage
-import com.araswqm.hachi.data.ai.DeepSeekClient
 import com.araswqm.hachi.data.ai.MissingApiKeyException
 import com.araswqm.hachi.data.ai.Placeholders
 import com.araswqm.hachi.data.ai.PromptBuilder
+import com.araswqm.hachi.data.ai.provider.LlmRouter
+import com.araswqm.hachi.data.ai.provider.ModelRole
 import com.araswqm.hachi.data.db.dao.CharacterDao
 import com.araswqm.hachi.data.db.dao.FollowupDao
 import com.araswqm.hachi.data.db.dao.MemoryStateDao
@@ -61,7 +63,7 @@ class ProactiveRepository @Inject constructor(
     private val memoryRepository: MemoryRepository,
     private val personaRepository: PersonaRepository,
     private val settings: SettingsRepository,
-    private val client: DeepSeekClient,
+    private val router: LlmRouter,
     private val promptBuilder: PromptBuilder,
     private val intimacy: IntimacyEngine,
     private val notifications: Notifications,
@@ -126,34 +128,35 @@ class ProactiveRepository @Inject constructor(
     private fun gate(
         character: CharacterEntity,
         chatStateRaw: String,
-        level: String,
+        level: IntimacyLevel,
         hasDueFollowup: Boolean,
         now: Long,
         dndStartHour: Int,
         dndEndHour: Int,
     ): Pair<String, String>? {
-        // 1) Seviye
-        if (levelRank(level) < levelRank(Tuning.PROACTIVE_MIN_LEVEL)) {
-            return "level" to "Seviye '$level', gereken '${Tuning.PROACTIVE_MIN_LEVEL}'."
+        // 1) Seviye (dil-bagimsiz karsilastirma: enum ordinal).
+        if (level.ordinal < Tuning.PROACTIVE_MIN_LEVEL.ordinal) {
+            return "level" to
+                "Level '${level.label}', required '${Tuning.PROACTIVE_MIN_LEVEL.label}'."
         }
 
         // 2) Sessizlik: cok uzun suredir konusulmuyorsa artik yazma.
         val lastAt = character.lastMessageAt ?: character.createdAt
         val silenceDays = (now - lastAt).toDouble() / TimeUnit.DAYS.toMillis(1)
         if (silenceDays > Tuning.PROACTIVE_MAX_SILENCE_DAYS) {
-            return "silence" to "%.1f gundur konusulmuyor.".format(silenceDays)
+            return "silence" to "No conversation for %.1f days.".format(silenceDays)
         }
 
         // 3) Rahatsiz etme penceresi (cihaz saat diliminde).
         if (inDndWindow(now, dndStartHour, dndEndHour)) {
-            return "dnd" to "Rahatsiz etme penceresi."
+            return "dnd" to "Do-not-disturb window."
         }
 
         // 4) Gunluk limitler (once karakter-basi, sonra toplam).
         val today = LocalDate.ofInstant(Instant.ofEpochMilli(now), ZoneId.systemDefault()).toString()
         val usedToday = if (character.dailyProactiveDate == today) character.dailyProactiveCount else 0
         if (usedToday >= Tuning.PROACTIVE_DAILY_LIMIT_PER_CHARACTER) {
-            return "daily_limit_character" to "Bugun bu karakter icin limit doldu."
+            return "daily_limit_character" to "Daily limit reached for this character."
         }
 
         // 5) "Dogal kapandi" beklemesi (vadesi gelmis takip gecersiz kilar).
@@ -161,7 +164,7 @@ class ProactiveRepository @Inject constructor(
         if (chatState.closed && !hasDueFollowup) {
             val sinceLast = (now - lastAt).toDouble() / TimeUnit.HOURS.toMillis(1)
             if (sinceLast < Tuning.PROACTIVE_CLOSED_CHAT_WAIT_HOURS) {
-                return "closed_wait" to "Sohbet kapandi; %.1f saat once.".format(sinceLast)
+                return "closed_wait" to "Chat closed %.1f hours ago.".format(sinceLast)
             }
         }
 
@@ -170,7 +173,7 @@ class ProactiveRepository @Inject constructor(
             val waitHours = backoffHours(character)
             val elapsed = (now - character.lastProactiveAt).toDouble() / TimeUnit.HOURS.toMillis(1)
             if (elapsed < waitHours) {
-                return "backoff" to "Yanitlanmadi; %.1f/%.1f saat.".format(elapsed, waitHours)
+                return "backoff" to "Unanswered; %.1f/%.1f hours.".format(elapsed, waitHours)
             }
         }
 
@@ -182,7 +185,6 @@ class ProactiveRepository @Inject constructor(
     // ------------------------------------------------------------------
 
     private suspend fun decide(character: CharacterEntity, dueFollowup: FollowupEntity?, now: Long) {
-        val settingsNow = withContext(io) { settings.currentSettings() }
         val memory = withContext(io) { memoryRepository.read(character.id) }
         val recent = withContext(io) {
             messageDao.getLast(character.id, Tuning.RECENT_MESSAGES_IN_PROMPT).reversed()
@@ -190,8 +192,8 @@ class ProactiveRepository @Inject constructor(
         val userName = withContext(io) { personaRepository.getSelected()?.name }
 
         val result = try {
-            client.complete(
-                model = settingsNow.modelDecision,
+            router.complete(
+                role = ModelRole.DECISION,
                 messages = buildDecisionPrompt(character, userName, memory, recent, dueFollowup, now),
                 temperature = Tuning.DECISION_TEMPERATURE,
                 maxTokens = Tuning.DECISION_MAX_TOKENS,
@@ -203,7 +205,7 @@ class ProactiveRepository @Inject constructor(
                 now = now,
                 stage = ProactiveLogEntity.STAGE_DECISION,
                 result = ProactiveLogEntity.RESULT_ERROR,
-                reason = "API anahtari yok.",
+                reason = "No API key.",
             )
             return
         } catch (e: Throwable) {
@@ -212,7 +214,7 @@ class ProactiveRepository @Inject constructor(
                 now = now,
                 stage = ProactiveLogEntity.STAGE_DECISION,
                 result = ProactiveLogEntity.RESULT_ERROR,
-                reason = e.message ?: "bilinmeyen hata",
+                reason = e.message ?: "unknown error",
             )
             withContext(io) { characterDao.setNextCheckAt(character.id, now + hour(Tuning.PROACTIVE_BACKOFF_BASE_HOURS)) }
             return
@@ -327,52 +329,53 @@ class ProactiveRepository @Inject constructor(
     ): List<AiMessage> {
         fun r(text: String) = Placeholders.resolve(text, character.name, userName)
         val system = buildString {
-            appendLine("# GÖREV")
+            appendLine("# TASK")
             appendLine(
-                "Sen ${character.name} adlı karakterin kendiliğinden mesaj kararını veriyorsun. " +
-                    "Kullanıcı şu an ekranda değil; ona kendiliğinden bir mesaj yazıp yazmayacağına karar veriyorsun.",
+                "You are deciding whether the character \"${character.name}\" sends a " +
+                    "spontaneous message. The user is not on screen right now; you decide " +
+                    "whether to send them one unprompted.",
             )
             appendLine()
-            appendLine("# KURALLAR")
-            appendLine("- Türkçe düşün ve yaz.")
-            appendLine("- Yalnızca verilen bağlama dayan; olmayan bir şeyi uydurma.")
-            appendLine("- Boş/ıvır-zıvır mesaj yazma. Yazacaksan kısa, samimi ve konuşmayı ilerleten bir şey yaz.")
-            appendLine("- Devam eden bir konu yoksa veya söyleyecek anlamlı bir şey yoksa \"send\": false ver.")
-            appendLine("- Yanıtı SADECE geçerli bir JSON nesnesi olarak ver.")
+            appendLine("# RULES")
+            appendLine("- Follow the language of the most recent messages in the conversation.")
+            appendLine("- Rely only on the given context; never invent anything.")
+            appendLine("- Do not send empty filler. If you do send, keep it short, warm and moving the conversation forward.")
+            appendLine("- If there is no ongoing topic or nothing meaningful to say, return \"send\": false.")
+            appendLine("- Return ONLY a valid JSON object.")
             appendLine()
             appendLine(promptBuilder.characterBlock(character, userName))
         }.trim()
 
         val user = buildString {
             if (memory.isNotBlank()) {
-                appendLine("## İlişki / uzun vadeli hafıza")
+                appendLine("## Relationship / long-term memory")
                 appendLine(r(memory))
                 appendLine()
             }
-            appendLine("## Son mesajlar")
+            appendLine("## Recent messages")
             if (recent.isEmpty()) {
-                appendLine("(henüz mesaj yok)")
+                appendLine("(no messages yet)")
             } else {
                 recent.forEach { m ->
-                    val who = if (m.role == MessageEntity.ROLE_USER) "Kullanıcı" else character.name
+                    val who = if (m.role == MessageEntity.ROLE_USER) "User" else character.name
                     appendLine("$who: ${r(m.content)}")
                 }
             }
             appendLine()
             if (dueFollowup != null) {
-                appendLine("## Vadesi gelmiş takip konusu")
+                appendLine("## Due follow-up topic")
                 appendLine("- ${r(dueFollowup.text)}")
                 appendLine()
             }
-            appendLine("Şu an: ${Instant.ofEpochMilli(now).atZone(ZoneId.systemDefault())}")
+            appendLine("Now: ${Instant.ofEpochMilli(now).atZone(ZoneId.systemDefault())}")
             appendLine()
-            appendLine("## İstenen JSON biçimi")
+            appendLine("## Required JSON shape")
             appendLine(
                 """
                 {
                   "send": true,
-                  "message": "kullanıcıya yazılacak Türkçe mesaj (send false ise boş)",
-                  "reason": "kararının çok kısa gerekçesi",
+                  "message": "message to send to the user, in the conversation language (empty if send false)",
+                  "reason": "very short justification for your decision, in English",
                   "next_check_hours": 4.0
                 }
                 """.trimIndent(),
@@ -442,14 +445,6 @@ class ProactiveRepository @Inject constructor(
             // Gece yarisini saran pencere (or. 23 -> 9).
             hour >= startHour || hour < endHour
         }
-    }
-
-    /** "Yabancı" < "Tanıdık" < "Arkadaş" < "Yakın". */
-    private fun levelRank(level: String): Int = when (level) {
-        "Yakın" -> 3
-        "Arkadaş" -> 2
-        "Tanıdık" -> 1
-        else -> 0
     }
 
     private fun cleanJson(raw: String): String {

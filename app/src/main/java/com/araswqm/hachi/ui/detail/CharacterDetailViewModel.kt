@@ -8,8 +8,10 @@ import com.araswqm.hachi.R
 import com.araswqm.hachi.data.db.dao.FollowupDao
 import com.araswqm.hachi.data.db.entity.CharacterEntity
 import com.araswqm.hachi.data.db.entity.FollowupEntity
+import com.araswqm.hachi.data.db.entity.PersonaEntity
 import com.araswqm.hachi.data.repo.CharacterRepository
 import com.araswqm.hachi.data.repo.MemoryRepository
+import com.araswqm.hachi.data.repo.PersonaRepository
 import com.araswqm.hachi.ui.Routes
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.io.File
@@ -42,6 +44,7 @@ class CharacterDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val characterRepository: CharacterRepository,
     private val memoryRepository: MemoryRepository,
+    private val personaRepository: PersonaRepository,
     private val followupDao: FollowupDao,
 ) : ViewModel() {
 
@@ -52,6 +55,10 @@ class CharacterDetailViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     val followups: StateFlow<List<FollowupEntity>> = followupDao.observeAll(characterId)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** Sohbet-basina persona secimi icin butun personalar (§3). */
+    val personas: StateFlow<List<PersonaEntity>> = personaRepository.observeAll()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     private val _memory = MutableStateFlow("")
@@ -93,6 +100,14 @@ class CharacterDetailViewModel @Inject constructor(
         viewModelScope.launch {
             val current = characterRepository.getById(characterId) ?: return@launch
             characterRepository.save(current.copy(proactiveEnabled = enabled))
+        }
+    }
+
+    /** Bu sohbete ozel persona atar; `null` → varsayilan personaya doner (§3). */
+    fun setPersona(personaId: String?) {
+        viewModelScope.launch {
+            val current = characterRepository.getById(characterId) ?: return@launch
+            characterRepository.save(current.copy(personaId = personaId))
         }
     }
 

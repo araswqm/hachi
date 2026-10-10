@@ -76,6 +76,40 @@ object Tuning {
     val KNOWN_MODELS = listOf("deepseek-flash", "deepseek-v4-pro")
 
     // ---------------------------------------------------------------------
+    // Coklu saglayici (§6)
+    // ---------------------------------------------------------------------
+
+    /**
+     * Taban adresler ve varsayilan modeller. Kullanici Ayarlar'dan degistirebilir;
+     * buradakiler yalnizca baslangic degerleridir. Saglayici sirasi (hangi
+     * saglayicinin once denenecegi) [com.araswqm.hachi.data.ai.provider.ProviderId]
+     * icinde tanimlidir ve kullanici tarafindan degistirilebilir.
+     */
+    const val DEFAULT_BASE_URL_OPENAI = "https://api.openai.com/v1"
+    const val DEFAULT_BASE_URL_ANTHROPIC = "https://api.anthropic.com"
+    const val DEFAULT_BASE_URL_GEMINI = "https://generativelanguage.googleapis.com"
+    const val DEFAULT_BASE_URL_MISTRAL = "https://api.mistral.ai/v1"
+
+    const val DEFAULT_MODEL_OPENAI_CHAT = "gpt-4.1"
+    const val DEFAULT_MODEL_OPENAI_SMALL = "gpt-4.1-mini"
+    const val DEFAULT_MODEL_ANTHROPIC_CHAT = "claude-sonnet-5"
+    const val DEFAULT_MODEL_ANTHROPIC_SMALL = "claude-haiku-4-5-20251001"
+    const val DEFAULT_MODEL_GEMINI = "gemini-2.5-flash"
+    const val DEFAULT_MODEL_MISTRAL_CHAT = "mistral-large-latest"
+    const val DEFAULT_MODEL_MISTRAL_SMALL = "mistral-small-latest"
+
+    /** Anthropic tel formati `max_tokens` zorunlu kilar; bu bir icerik limiti degil. */
+    const val ANTHROPIC_MAX_TOKENS_CEILING = 8192
+    const val ANTHROPIC_API_VERSION = "2023-06-01"
+
+    /**
+     * Otomatik gecisin "bos elle" sayildigi HTTP kodlari: hiz siniri ve sunucu
+     * hatasi. 4xx (400/401/403) kullanici hatasidir; zincir denenmeden durur.
+     */
+    const val AI_FALLBACK_HTTP_TOO_MANY_REQUESTS = 429
+    const val AI_FALLBACK_HTTP_SERVER_ERROR_MIN = 500
+
+    // ---------------------------------------------------------------------
     // Hafiza (.md) sistemi
     // ---------------------------------------------------------------------
 
@@ -92,6 +126,13 @@ object Tuning {
      */
     const val MEMORY_COMPRESS_THRESHOLD_TOKENS = 4500
     const val MEMORY_COMPRESS_KEEP_RECENT_TOKENS = 2500
+
+    /**
+     * Uzun vadeli ozet blogunun hedef ust siniri (token). Sıkisma esigine
+     * gelindiginde eski bolumler bu boyuta kadar LLM ile yeniden ozetlenir;
+     * boylece uzun vadeli blok sinirsiz buyumez (§2.1).
+     */
+    const val MEMORY_LONG_TERM_MAX_TOKENS = 1200
 
     /** Kaba token tahmini icin karakter/token orani (Turkce icin muhafazakar). */
     const val CHARS_PER_TOKEN = 3.0
@@ -189,8 +230,11 @@ object Tuning {
     const val PROACTIVE_NEXT_CHECK_MIN_HOURS = 0.5
     const val PROACTIVE_NEXT_CHECK_MAX_HOURS = 72.0
 
-    /** Sadece bu seviye ve uzeri karakterler kendiliğinden yazabilir. */
-    const val PROACTIVE_MIN_LEVEL = "Arkadaş"
+    /**
+     * Sadece bu seviye ve uzeri karakterler kendiliğinden yazabilir.
+     * Karsilastirma [IntimacyLevel] ordinal sirasi ile yapilir; metin degil.
+     */
+    val PROACTIVE_MIN_LEVEL = IntimacyLevel.FRIEND
 
     /** Hata ayiklama kaydindaki `reason` alaninin kirpilma uzunlugu. */
     const val PROACTIVE_LOG_REASON_MAX_CHARS = 500
@@ -236,4 +280,28 @@ object Tuning {
     /** onStop ozetlemesi icin OneTimeWorkRequest backoff ayarlari. */
     const val ONSTOP_SUMMARY_BACKOFF_SECONDS = 30L
     const val ONSTOP_SUMMARY_MAX_ATTEMPTS = 5
+
+    // ---------------------------------------------------------------------
+    // Taslak asistani (Astroid, §7.1)
+    // ---------------------------------------------------------------------
+
+    /** Taslak uretimi yaratici ama dagilmayacak kadar da tutarli olsun. */
+    const val DRAFT_TEMPERATURE = 0.8f
+    const val DRAFT_MAX_TOKENS = 1024
+
+    /** "Benim icin bir seyler yaz" icin baglama girecek son mesaj sayisi. */
+    const val DRAFT_CONTEXT_MESSAGES = 12
+
+    // ---------------------------------------------------------------------
+    // Dokunsal geri bildirim (haptik, §7.2)
+    // ---------------------------------------------------------------------
+
+    /**
+     * Iki hafif tik arasindaki en az sure. SSE deltalari cok sik gelebildigi
+     * icin bu esik olmadan motor surekli titrer.
+     */
+    const val HAPTICS_THROTTLE_MILLIS = 70L
+
+    /** Bu uzunluktan kisa parcalar (bosluk, tek harf) tik uretmez. */
+    const val HAPTICS_MIN_CHARS = 3
 }

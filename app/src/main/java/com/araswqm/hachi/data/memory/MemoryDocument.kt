@@ -51,6 +51,15 @@ data class MemoryDocument(
     fun appending(title: String, body: String): MemoryDocument =
         copy(sections = sections + MemorySection(title, body))
 
+    /** Verilen basliktaki bolumu yenisiyle degistirir; yoksa sona ekler. */
+    fun withSection(title: String, body: String): MemoryDocument {
+        val idx = sections.indexOfFirst { it.title == title }
+        if (idx < 0) return appending(title, body)
+        val updated = sections.toMutableList()
+        updated[idx] = MemorySection(title, body)
+        return copy(sections = updated)
+    }
+
     /**
      * Token ust siniri asildiysa eski bolumleri tek bir "Uzun Vadeli Özet"
      * bloguna sikistirir; en yeni bolumler oldugu gibi kalir.
@@ -87,8 +96,11 @@ data class MemoryDocument(
     companion object {
         const val START = "<!-- HACHI:BASLANGIC -->"
         const val END = "<!-- HACHI:SON -->"
-        const val NOTES_TITLE = "Kullanıcı Notları"
-        const val LONG_TERM_TITLE = "Uzun Vadeli Özet"
+
+        // Basliklar Ingilizcedir: hafiza dosyasi prompt'a oldugu gibi girer ve
+        // §2.2 geregi daima Ingilizce tutulur (arayuz dili ne olursa olsun).
+        const val NOTES_TITLE = "User Notes"
+        const val LONG_TERM_TITLE = "Long-Term Summary"
 
         fun empty(): MemoryDocument = MemoryDocument("", emptyList(), emptyList())
 

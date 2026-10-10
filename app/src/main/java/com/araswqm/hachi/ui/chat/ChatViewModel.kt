@@ -1,10 +1,14 @@
 package com.araswqm.hachi.ui.chat
 
+import androidx.annotation.StringRes
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.araswqm.hachi.R
 import com.araswqm.hachi.core.ApplicationScope
+import com.araswqm.hachi.data.ai.MissingApiKeyException
 import com.araswqm.hachi.data.ai.Placeholders
+import com.araswqm.hachi.data.ai.provider.ProviderId
 import com.araswqm.hachi.data.chat.ChatRepository
 import com.araswqm.hachi.data.chat.GenEvent
 import com.araswqm.hachi.data.db.entity.CharacterEntity
@@ -19,10 +23,12 @@ import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
@@ -45,17 +51,31 @@ data class ChatMessage(
 /**
  * Gosterilecek bir hata. [id] her yeni hatada artar; arayuz ayni metin tekrar
  * gelse bile snackbar'i yeniden gosterebilsin diye (LaunchedEffect anahtari).
+ * [resId] doluysa metin kaynaktan cozulur (yerellestirilebilir), aksi halde
+ * ham [message] gosterilir. [resArgResIds] doluysa `%1$s`-tarzi yer tutucular
+ * bu kaynaklarin cozulmus metinleriyle doldurulur (§6 saglayici gecisi).
  */
-data class ChatError(val message: String, val needsApiKey: Boolean, val id: Long)
+data class ChatError(
+    val message: String,
+    val needsApiKey: Boolean,
+    val id: Long,
+    @StringRes val resId: Int? = null,
+    @StringRes val resArgResIds: List<Int> = emptyList(),
+)
 
 data class ChatUiState(
     val messages: List<ChatMessage> = emptyList(),
     val isGenerating: Boolean = false,
     val streamingText: String = "",
     val error: ChatError? = null,
+    val input: String = "",
+    val assistantBusy: Boolean = false,
 ) {
     /** Son mesaj asistana aitse (ve uretim yoksa) "yeniden uret" sunulur. */
     val canRegenerate: Boolean get() = !isGenerating && messages.lastOrNull()?.fromUser == false
+
+    /** Taslak asistani yalnizca uretim ve asistan mesgul degilken calisir. */
+    val canUseAssistant: Boolean get() = !isGenerating && !assistantBusy
 }
 
 /**
@@ -91,31 +111,47 @@ class ChatViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     /**
-     * Kullanici balonlarinin avatarini cizmek icin secili persona (§8.2).
-     * Simdilik tek varsayilan persona; Adim 2'de sohbet-basina persona
-     * atamasi geldiginde `PersonaResolver` ile degisecek.
+     * Bu sohbette gecerli persona (§8.2). Karaktere atanmis `personaId` varsa o,
+     * yoksa genel varsayilan persona. Kullanici balonlarinin avatari ve mesaj
+     * metnindeki `{{user}}` buradan cozulur.
      */
-    val persona: StateFlow<PersonaEntity?> = personas
-        .observeSelected()
+    private val personaFlow: Flow<PersonaEntity?> = characters
+        .observeById(characterId)
+        .flatMapLatest { character ->
+            val assigned = character?.personaId
+            if (assigned != null) personas.observeById(assigned) else personas.observeSelected()
+        }
+
+    val persona: StateFlow<PersonaEntity?> = personaFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     private val messages = combine(
         chat.observeMessages(characterId),
         characters.observeById(characterId),
-        personas.observeSelected(),
+        personaFlow,
     ) { rows, character, persona ->
         val characterName = character?.name.orEmpty()
         val userName = persona?.name
         rows.map { it.toUi(characterName, userName) }
     }
 
+    private val draft = MutableStateFlow("")
+    private val assistantBusy = MutableStateFlow(false)
+
+    /** Uretimle ilgili uc akisi tek bir demette toplar (combine argüman siniri). */
+    private val generationState = combine(generating, streaming, errorState) { g, s, e ->
+        Triple(g, s, e)
+    }
+
     val uiState: StateFlow<ChatUiState> =
-        combine(messages, generating, streaming, errorState) { list, isGenerating, text, error ->
+        combine(messages, generationState, draft, assistantBusy) { list, gen, input, busy ->
             ChatUiState(
                 messages = list,
-                isGenerating = isGenerating,
-                streamingText = text,
-                error = error,
+                isGenerating = gen.first,
+                streamingText = gen.second,
+                error = gen.third,
+                input = input,
+                assistantBusy = busy,
             )
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ChatUiState())
 
@@ -133,12 +169,61 @@ class ChatViewModel @Inject constructor(
     // Kullanici eylemleri
     // ------------------------------------------------------------------
 
-    fun send(text: String) {
-        val trimmed = text.trim()
+    /** Giris kutusundaki metni gunceller (metin artik ViewModel'de yasar). */
+    fun onInputChange(text: String) {
+        draft.value = text
+    }
+
+    fun send() {
+        val trimmed = draft.value.trim()
         if (trimmed.isEmpty() || generating.value) return
+        draft.value = ""
         viewModelScope.launch {
             chat.appendUserMessage(characterId, trimmed)
             launchGeneration(regenerate = false)
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // Taslak asistani (Astroid, §7.1)
+    // ------------------------------------------------------------------
+
+    /** Eldeki taslagi LLM ile zenginlestirir; sonuc giris kutusuna yazilir. */
+    fun enhanceDraft() {
+        val current = draft.value.trim()
+        if (current.isEmpty() || assistantBusy.value || generating.value) return
+        runAssistant { chat.enhanceDraft(characterId, current) }
+    }
+
+    /** Karakterin son mesajina uygun bir kullanici yaniti onerir. */
+    fun writeForMe() {
+        if (assistantBusy.value || generating.value) return
+        runAssistant { chat.suggestReply(characterId) }
+    }
+
+    /** Taslak cagrisini calistirir; mesguliyet bayragini ve hatayi yonetir. */
+    private fun runAssistant(block: suspend () -> String?) {
+        if (characterId.isBlank()) return
+        viewModelScope.launch {
+            assistantBusy.value = true
+            errorState.value = null
+            try {
+                val result = block()
+                if (result.isNullOrBlank()) {
+                    reportErrorRes(R.string.assistant_failed, needsApiKey = false)
+                } else {
+                    draft.value = result
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                reportErrorRes(
+                    R.string.assistant_failed,
+                    needsApiKey = e is MissingApiKeyException,
+                )
+            } finally {
+                assistantBusy.value = false
+            }
         }
     }
 
@@ -194,6 +279,9 @@ class ChatViewModel @Inject constructor(
 
                         is GenEvent.Failed -> reportError(event.message, event.needsApiKey)
 
+                        is GenEvent.ProviderSwitched ->
+                            reportProviderSwitch(event.from, event.to)
+
                         GenEvent.Cancelled -> Unit
                     }
                 }
@@ -213,6 +301,32 @@ class ChatViewModel @Inject constructor(
     private fun reportError(message: String, needsApiKey: Boolean) {
         errorSeq += 1
         errorState.value = ChatError(message = message, needsApiKey = needsApiKey, id = errorSeq)
+    }
+
+    /** Metni kaynaktan cozulecek (yerellestirilebilir) bir hata bildirir. */
+    private fun reportErrorRes(@StringRes resId: Int, needsApiKey: Boolean) {
+        errorSeq += 1
+        errorState.value = ChatError(
+            message = "",
+            needsApiKey = needsApiKey,
+            id = errorSeq,
+            resId = resId,
+        )
+    }
+
+    /**
+     * §6: zincir bir sonraki saglayiciya gectiginde bilgilendirir. Uretim
+     * durmaz — yalnizca snackbar gosterilir (kalici DB satiri yazilmaz).
+     */
+    private fun reportProviderSwitch(from: ProviderId, to: ProviderId) {
+        errorSeq += 1
+        errorState.value = ChatError(
+            message = "",
+            needsApiKey = false,
+            id = errorSeq,
+            resId = R.string.chat_provider_switched,
+            resArgResIds = listOf(from.displayNameRes, to.displayNameRes),
+        )
     }
 
     private fun maybeSummarize() {

@@ -1,0 +1,228 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Hachi</string>
+
+    <!-- Navegação principal -->
+    <string name="nav_chats">Conversas</string>
+    <string name="nav_settings">Configurações</string>
+
+    <!-- Geral -->
+    <string name="action_save">Salvar</string>
+    <string name="action_cancel">Cancelar</string>
+    <string name="action_delete">Excluir</string>
+    <string name="action_delete_confirm">Excluir</string>
+    <string name="action_edit">Editar</string>
+    <string name="action_close">Fechar</string>
+    <string name="action_retry">Tentar novamente</string>
+    <string name="action_copy">Copiar</string>
+    <string name="action_import">Importar</string>
+    <string name="action_export">Exportar</string>
+    <string name="action_confirm">Confirmar</string>
+    <string name="action_ok">OK</string>
+    <string name="action_back">Voltar</string>
+    <string name="action_details">Detalhes</string>
+
+    <!-- Lista de conversas -->
+    <string name="chats_title">Conversas</string>
+    <string name="chats_empty_title">Ainda não há personagens</string>
+    <string name="chats_empty_body">Crie um novo personagem ou importe uma ficha de personagem para começar.</string>
+    <string name="chats_new_character">Novo personagem</string>
+    <string name="chats_delete_character_title">Excluir personagem?</string>
+    <string name="chats_delete_character_body">%1$s e todo o histórico de conversa, a memória e os acompanhamentos serão excluídos permanentemente. Esta ação não pode ser desfeita.</string>
+
+    <!-- Tela de conversa -->
+    <string name="chat_input_hint">Escreva algo…</string>
+    <string name="chat_send">Enviar</string>
+    <string name="chat_regenerate">Gerar novamente</string>
+    <string name="chat_stop">Parar</string>
+    <string name="chat_edit_message">Editar mensagem</string>
+    <string name="chat_delete_message">Excluir mensagem</string>
+    <string name="chat_empty_state">Comece a conversar com %1$s</string>
+    <string name="chat_error_generic">Não foi possível obter resposta. Tentar de novo?</string>
+    <string name="chat_error_no_api_key">Primeiro insira sua chave de API da DeepSeek em Configurações.</string>
+    <string name="chat_proactive_badge">Escreveu por conta própria</string>
+    <string name="chat_typing">%1$s está digitando…</string>
+    <string name="chat_copied">Mensagem copiada</string>
+    <string name="chat_error_detail">Detalhes: %1$s</string>
+    <string name="chat_actions_title">Mensagem</string>
+    <string name="chat_open_settings">Configurações</string>
+
+    <!-- Editor de personagens -->
+    <string name="editor_title_new">Novo personagem</string>
+    <string name="editor_title_edit">Editar personagem</string>
+    <string name="editor_field_name">Nome</string>
+    <string name="editor_field_description">Descrição</string>
+    <string name="editor_field_personality">Personalidade</string>
+    <string name="editor_field_scenario">Cenário</string>
+    <string name="editor_field_first_message">Primeira mensagem</string>
+    <string name="editor_field_example_dialogs">Diálogos de exemplo</string>
+    <string name="editor_field_temperature">Criatividade (temperature)</string>
+    <string name="editor_field_max_tokens">Comprimento máximo da resposta</string>
+    <string name="editor_avatar">Foto de perfil</string>
+    <string name="editor_avatar_pick">Escolher imagem</string>
+    <string name="editor_avatar_remove">Remover imagem</string>
+    <string name="editor_name_required">O nome não pode ficar vazio</string>
+    <string name="editor_import_card">Importar ficha de personagem</string>
+    <string name="editor_import_hint">Ficha de personagem JSON ou PNG (V1 / V2 / V3)</string>
+    <string name="editor_import_success">%1$s importado</string>
+    <string name="editor_import_failed">Não foi possível ler a ficha: %1$s</string>
+    <string name="editor_import_read_error">Não foi possível ler o arquivo</string>
+    <string name="editor_import_no_png_card">Nenhuma ficha de personagem encontrada no PNG</string>
+    <string name="editor_import_bad_json">Não é um JSON válido, ou o nome está vazio</string>
+    <string name="editor_export_card">Exportar ficha (V2)</string>
+    <string name="editor_export_success">Ficha salva</string>
+
+    <!-- Detalhe do personagem -->
+    <string name="detail_title">Personagem</string>
+    <string name="detail_tab_memory">Memória</string>
+    <string name="detail_tab_followups">Acompanhamento</string>
+    <string name="detail_tab_card">Ficha</string>
+    <string name="detail_memory_title">Arquivo de memória</string>
+    <string name="detail_memory_empty">Ainda não há conversa suficiente com este personagem. A memória é criada automaticamente conforme você conversa.</string>
+    <string name="detail_memory_edit">Editar memória</string>
+    <string name="detail_memory_saved">Memória salva</string>
+    <string name="detail_memory_lock_hint">As linhas que começam com 🔒 não são alteradas pelo resumidor.</string>
+    <string name="detail_source_manual">Criado manualmente</string>
+    <string name="detail_source_v1">Ficha de personagem V1</string>
+    <string name="detail_source_v2">Ficha de personagem V2</string>
+    <string name="detail_source_v3">Ficha de personagem V3</string>
+    <string name="detail_created_at">Criado em: %1$s</string>
+    <string name="detail_followups_due">Vence em: %1$s</string>
+    <string name="detail_followups_done">Concluído</string>
+    <string name="detail_card_empty">Este campo está vazio.</string>
+    <string name="editor_export_failed">Falha ao exportar</string>
+    <string name="detail_followups_title">Assuntos a acompanhar</string>
+    <string name="detail_followups_empty">No momento não há nada a acompanhar.</string>
+    <string name="detail_proactive_toggle">Pode enviar mensagens por conta própria</string>
+    <string name="detail_proactive_hint">Só escreve quando há proximidade suficiente entre vocês e em horários que não vão incomodar você.</string>
+
+    <!-- Configurações -->
+    <string name="settings_title">Configurações</string>
+    <string name="settings_section_api">Conexão com a DeepSeek</string>
+    <string name="settings_api_key">Chave de API</string>
+    <string name="settings_api_key_hint">sk-…</string>
+    <string name="settings_api_key_saved">Salva</string>
+    <string name="settings_api_key_none">Não definida</string>
+    <string name="settings_base_url">URL base</string>
+    <string name="settings_model_chat">Modelo de conversa</string>
+    <string name="settings_model_summary">Modelo de resumo</string>
+    <string name="settings_model_decision">Modelo de decisão</string>
+    <string name="settings_section_persona">Persona (você)</string>
+    <string name="settings_persona_name">Seu nome</string>
+    <string name="settings_persona_about">Sobre você</string>
+    <string name="settings_personas_manage">Gerenciar personas</string>
+    <string name="settings_section_proactive">Mensagens espontâneas</string>
+    <string name="settings_dnd_title">Horário de não perturbe</string>
+    <string name="settings_dnd_start">Início</string>
+    <string name="settings_dnd_end">Fim</string>
+    <string name="settings_battery_title">Atividade em segundo plano</string>
+    <string name="settings_battery_body">Para receber as mensagens espontâneas na hora certa, é recomendável isentar o Hachi da otimização de bateria.</string>
+    <string name="settings_battery_action">Isentar da otimização de bateria</string>
+    <string name="settings_section_appearance">Aparência</string>
+    <string name="settings_theme">Tema</string>
+    <string name="settings_theme_system">Sistema</string>
+    <string name="settings_theme_light">Claro</string>
+    <string name="settings_theme_dark">Escuro</string>
+    <string name="settings_dynamic_color">Cor dinâmica</string>
+    <string name="settings_night_owl_desc">Um tema que não cansa a vista, com fundo preto OLED e texto claro</string>
+    <string name="settings_haptics">Vibração tátil</string>
+    <string name="settings_haptics_desc">Uma vibração bem leve enquanto uma resposta é escrita e ao tocar nos botões</string>
+    <string name="settings_section_debug">Desenvolvedor</string>
+    <string name="settings_debug_screen">Tela de depuração</string>
+
+    <!-- Depuração -->
+    <string name="debug_title">Depuração</string>
+    <string name="debug_intimacy">Pontuações de proximidade</string>
+    <string name="debug_proactive_log">Registro de mensagens espontâneas</string>
+    <string name="debug_cache_tokens">Cache (acertos / erros)</string>
+    <string name="debug_empty">Nenhum registro para mostrar.</string>
+    <string name="debug_deleted_character">Personagem excluído</string>
+    <string name="debug_intimacy_line">%1$s — %2$s (bruto %3$d, méd. últimas 5 %4$s)</string>
+    <string name="debug_cache_line">%1$s — acertos %2$d / erros %3$d (%4$d requisições)</string>
+    <string name="debug_log_entry">%1$s · %2$s / %3$s</string>
+    <string name="settings_version">Hachi %1$s</string>
+
+    <!-- Personas (§3) -->
+    <string name="personas_title">Personas</string>
+    <string name="personas_add">Adicionar persona</string>
+    <string name="personas_empty">Ainda não há personas. Adicione uma com o + no canto superior direito.</string>
+    <string name="personas_default">Padrão</string>
+    <string name="personas_unnamed">Sem nome</string>
+    <string name="personas_edit_title">Editar persona</string>
+    <string name="personas_name">Nome</string>
+    <string name="personas_about">Sobre</string>
+    <string name="personas_delete_title">Excluir persona?</string>
+    <string name="personas_delete_body">%1$s será excluída. As conversas que a usam voltarão para a persona padrão.</string>
+    <string name="detail_persona_label">Persona a usar nesta conversa</string>
+
+    <!-- Notificação -->
+    <string name="notif_channel_name">Mensagens de personagens</string>
+    <string name="notif_channel_description">Mensagens que os personagens enviam por conta própria</string>
+    <string name="notif_channel_description_char">Avisar quando %1$s enviar uma mensagem por conta própria.</string>
+    <string name="notif_channel_fallback_name">Personagem</string>
+    <string name="notif_permission_title">Permitir notificações</string>
+    <string name="notif_permission_body">Precisamos da permissão de notificações para avisar você quando os personagens enviarem mensagens por conta própria.</string>
+    <string name="notif_permission_action">Permitir</string>
+    <string name="notif_permission_granted">Notificações ativadas</string>
+
+    <!-- Assistente de rascunho (Astroid, §7.1) -->
+    <string name="assistant_title">Assistente de escrita</string>
+    <string name="assistant_enhance">Melhorar meu rascunho</string>
+    <string name="assistant_enhance_desc">Deixa o texto que você escreveu mais fluente e eficaz</string>
+    <string name="assistant_write">Escreva algo para mim</string>
+    <string name="assistant_write_desc">Gera um rascunho de resposta adequado à última mensagem</string>
+    <string name="assistant_empty_draft">Escreva algo na caixa primeiro.</string>
+    <string name="assistant_failed">Não foi possível gerar o rascunho</string>
+    <string name="assistant_working">Escrevendo…</string>
+    <string name="cd_assistant">Assistente de escrita</string>
+
+    <!-- Troca de provedor (§6) -->
+    <string name="chat_provider_switched">%1$s não respondeu, mudou para %2$s.</string>
+
+    <!-- Descrições de conteúdo -->
+    <string name="cd_character_avatar">Imagem do personagem</string>
+    <string name="cd_persona_avatar">Imagem da persona</string>
+    <string name="cd_unread">Não lida</string>
+    <string name="cd_more_options">Mais opções</string>
+    <string name="cd_variant_previous">Variante anterior</string>
+    <string name="cd_variant_next">Próxima variante</string>
+
+    <!-- Idioma -->
+    <string name="settings_section_language">Idioma</string>
+    <string name="settings_language">Idioma</string>
+    <string name="settings_language_system">Sistema</string>
+
+    <!-- Níveis de proximidade (mostrados apenas na tela de depuração) -->
+    <string name="level_stranger">Estranho</string>
+    <string name="level_acquaintance">Conhecido</string>
+    <string name="level_friend">Amigo</string>
+    <string name="level_close">Próximo</string>
+
+    <!-- Expressões de tempo curtas -->
+    <string name="time_now">agora</string>
+    <string name="time_minutes">%1$d min</string>
+    <string name="time_hours">%1$d h</string>
+    <string name="time_days">%1$d d</string>
+
+    <!-- Sufixos de mensagens de conversa -->
+    <string name="chat_edited"> · editado</string>
+    <string name="chat_variant_position"> · %1$d/%2$d</string>
+
+    <!-- Provedores (§6) -->
+    <string name="settings_section_providers">Provedores de IA</string>
+    <string name="settings_providers_hint">O Hachi os testa em ordem e usa o primeiro provedor habilitado que tenha uma chave. Se falhar, ele passa automaticamente para o próximo.</string>
+    <string name="settings_provider_enabled">Habilitado</string>
+    <string name="settings_provider_api_key">Chave de API</string>
+    <string name="settings_provider_base_url">URL base</string>
+    <string name="settings_provider_model_chat">Modelo de conversa</string>
+    <string name="settings_provider_model_summary">Modelo de resumo</string>
+    <string name="settings_provider_model_decision">Modelo de decisão</string>
+    <string name="settings_provider_move_up">Mover para cima</string>
+    <string name="settings_provider_move_down">Mover para baixo</string>
+    <string name="settings_provider_needs_key">Adicione uma chave de API para usar este provedor</string>
+    <string name="provider_deepseek">DeepSeek</string>
+    <string name="provider_openai">OpenAI</string>
+    <string name="provider_anthropic">Anthropic</string>
+    <string name="provider_gemini">Gemini</string>
+    <string name="provider_mistral">Mistral</string>
+</resources>

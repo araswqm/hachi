@@ -13,6 +13,7 @@ import com.araswqm.hachi.ui.chats.ChatsListScreen
 import com.araswqm.hachi.ui.debug.DebugScreen
 import com.araswqm.hachi.ui.detail.CharacterDetailScreen
 import com.araswqm.hachi.ui.editor.CharacterEditorScreen
+import com.araswqm.hachi.ui.personas.PersonaListScreen
 import com.araswqm.hachi.ui.settings.SettingsScreen
 
 /**
@@ -50,8 +51,13 @@ fun HachiRoot(
         composable(Routes.SETTINGS) {
             SettingsScreen(
                 onBack = { navController.popBackStack() },
+                onOpenPersonas = { navController.navigate(Routes.PERSONAS) },
                 onOpenDebug = { navController.navigate(Routes.DEBUG) },
             )
+        }
+
+        composable(Routes.PERSONAS) {
+            PersonaListScreen(onBack = { navController.popBackStack() })
         }
 
         composable(Routes.DEBUG) {

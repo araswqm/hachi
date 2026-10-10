@@ -1,11 +1,16 @@
-package com.araswqm.hachi.data.ai
+package com.araswqm.hachi.data.ai.provider
 
 import com.araswqm.hachi.core.IoDispatcher
 import com.araswqm.hachi.core.Tuning
-import com.araswqm.hachi.data.settings.SettingsRepository
+import com.araswqm.hachi.data.ai.AiEmptyResponseException
+import com.araswqm.hachi.data.ai.AiHttpException
+import com.araswqm.hachi.data.ai.AiMessage
+import com.araswqm.hachi.data.ai.AiNetworkException
+import com.araswqm.hachi.data.ai.AiParseException
+import com.araswqm.hachi.data.ai.AiResult
+import com.araswqm.hachi.data.ai.AiStreamEvent
+import com.araswqm.hachi.data.ai.AiUsage
 import java.io.IOException
-import javax.inject.Inject
-import javax.inject.Singleton
 import kotlin.concurrent.thread
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.channels.Channel
@@ -30,40 +35,29 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 
 /**
- * DeepSeek `POST {baseUrl}/chat/completions` cagrilari.
+ * OpenAI-uyumlu saglayicilar: DeepSeek, OpenAI ve Mistral ayni tel formatini
+ * kullanir (`POST {baseUrl}/chat/completions`, `Authorization: Bearer`).
  *
- * Iki kullanim bicimi var:
- *  - [complete]: tek seferlik, akissiz yanit. Ozetleyici, karar ve JSON modu
- *    cagrilari bunu kullanir.
- *  - [stream]: SSE ile parca parca metin. Sohbet ekrani bunu kullanir.
+ * Tek fark DeepSeek'e ozgu `thinking: {type: "disabled"}` alanidir; bu yuzden
+ * alt sinif `thinkingDisabledField` degerini true yapar. Digerleri govdeye
+ * eklemez.
  *
- * Istek govdesinde **dusunme modu her zaman kapalidir**
- * (`thinking.type = "disabled"`); kapaliyken `top_p` sabit 1.0 oldugu icin
- * gonderilmez. Ornekleme yalnizca karakter basina `temperature` + `max_tokens`
- * ile yapilir.
- *
- * Model, anahtar ve taban adres [SettingsRepository]'den okunur; hicbiri
- * kaynak kodda ya da build'de sabit degildir.
+ * Istek govdesi [AiRequest]'ten kurulur; anahtar/taban adres cagirici
+ * (LlmRouter) tarafindan cozulmustur, saglayici ayarlari bilmez.
  */
-@Singleton
-class DeepSeekClient @Inject constructor(
-    private val httpClient: OkHttpClient,
+open class OpenAiCompatProvider(
+    override val id: ProviderId,
+    protected val httpClient: OkHttpClient,
     private val json: Json,
-    private val settings: SettingsRepository,
     @IoDispatcher private val io: CoroutineDispatcher,
-) {
+    /** Yalnizca DeepSeek true; dusunme modu alani govdeye eklenir. */
+    private val thinkingDisabledField: Boolean = false,
+) : AiProvider {
 
-    /** Akissiz tamamlama. Yanit metni ve varsa token kullanimi doner. */
-    suspend fun complete(
-        model: String,
-        messages: List<AiMessage>,
-        temperature: Float,
-        maxTokens: Int,
-        jsonMode: Boolean = false,
-    ): AiResult = withContext(io) {
-        val request = buildRequest(model, messages, temperature, maxTokens, stream = false, jsonMode = jsonMode)
+    override suspend fun complete(request: AiRequest): AiResult = withContext(io) {
+        val httpRequest = buildRequest(request, stream = false)
         val response = try {
-            httpClient.newCall(request).execute()
+            httpClient.newCall(httpRequest).execute()
         } catch (e: IOException) {
             throw AiNetworkException("Bağlantı kurulamadı: ${e.message}", e)
         }
@@ -77,29 +71,16 @@ class DeepSeekClient @Inject constructor(
         }
     }
 
-    /**
-     * SSE akisi. Iptal edildiginde (ornegin "Durdur") HTTP cagrisi hemen
-     * kesilir ve `call.cancel()` ile okuyucu is parcacigi sonlanir.
-     *
-     * `.buffer(Channel.UNLIMITED)` cagrisi `trySend`'in hicbir zaman
-     * bloklamamasini/dusurmemesini garanti eder: uretici okuma is parcacigi,
-     * tuketici ise UI'dir.
-     */
-    fun stream(
-        model: String,
-        messages: List<AiMessage>,
-        temperature: Float,
-        maxTokens: Int,
-    ): Flow<AiStreamEvent> = callbackFlow {
-        val request = try {
-            buildRequest(model, messages, temperature, maxTokens, stream = true, jsonMode = false)
+    override fun stream(request: AiRequest): Flow<AiStreamEvent> = callbackFlow {
+        val httpRequest = try {
+            buildRequest(request, stream = true)
         } catch (e: Throwable) {
             close(e)
             return@callbackFlow
         }
 
-        val call = httpClient.newCall(request)
-        thread(name = "deepseek-sse") {
+        val call = httpClient.newCall(httpRequest)
+        thread(name = "sse-${id.name.lowercase()}") {
             try {
                 call.execute().use { response ->
                     if (!response.isSuccessful) {
@@ -120,7 +101,6 @@ class DeepSeekClient @Inject constructor(
     // SSE cozumleme
     // ------------------------------------------------------------------
 
-    /** `data: {...}` satirlarini okur; `[DONE]` ile biter. */
     private fun ProducerScope<AiStreamEvent>.readStream(response: Response) {
         val source = response.body?.source() ?: run {
             close(AiParseException("Yanıt gövdesi boş."))
@@ -146,40 +126,23 @@ class DeepSeekClient @Inject constructor(
     // Istek kurulumu
     // ------------------------------------------------------------------
 
-    private suspend fun buildRequest(
-        model: String,
-        messages: List<AiMessage>,
-        temperature: Float,
-        maxTokens: Int,
-        stream: Boolean,
-        jsonMode: Boolean,
-    ): Request {
-        val key = settings.currentApiKey()?.takeIf { it.isNotBlank() }
-            ?: throw MissingApiKeyException()
-        val baseUrl = settings.currentSettings().baseUrl.trimEnd('/')
-        val body = buildBody(model, messages, temperature, maxTokens, stream, jsonMode)
+    private fun buildRequest(request: AiRequest, stream: Boolean): Request {
+        val body = buildBody(request, stream)
         return Request.Builder()
-            .url("$baseUrl$ENDPOINT")
-            .header("Authorization", "Bearer $key")
+            .url("${request.baseUrl.trimEnd('/')}$ENDPOINT")
+            .header("Authorization", "Bearer ${request.apiKey}")
             .header("Accept", if (stream) ACCEPT_SSE else ACCEPT_JSON)
             .post(body.toRequestBody(JSON_MEDIA_TYPE))
             .build()
     }
 
-    private fun buildBody(
-        model: String,
-        messages: List<AiMessage>,
-        temperature: Float,
-        maxTokens: Int,
-        stream: Boolean,
-        jsonMode: Boolean,
-    ): String {
+    private fun buildBody(request: AiRequest, stream: Boolean): String {
         val payload = buildJsonObject {
-            put("model", JsonPrimitive(model))
+            put("model", JsonPrimitive(request.model))
             put(
                 "messages",
                 buildJsonArray {
-                    messages.forEach { m ->
+                    request.messages.forEach { m: AiMessage ->
                         add(
                             buildJsonObject {
                                 put("role", JsonPrimitive(m.role))
@@ -190,17 +153,19 @@ class DeepSeekClient @Inject constructor(
                 },
             )
             put("stream", JsonPrimitive(stream))
-            put("temperature", JsonPrimitive(temperature))
-            put("max_tokens", JsonPrimitive(maxTokens))
-            // Dusunme modu tum cagrilarda kapali. Kapaliyken top_p sabit 1.0'dir.
-            put("thinking", buildJsonObject { put("type", JsonPrimitive(THINKING_DISABLED)) })
+            put("temperature", JsonPrimitive(request.temperature))
+            put("max_tokens", JsonPrimitive(request.maxTokens))
+            if (thinkingDisabledField) {
+                // Dusunme modu tum cagrilarda kapali (yalniz DeepSeek).
+                put("thinking", buildJsonObject { put("type", JsonPrimitive(THINKING_DISABLED)) })
+            }
             if (stream) {
                 put(
                     "stream_options",
                     buildJsonObject { put("include_usage", JsonPrimitive(true)) },
                 )
             }
-            if (jsonMode) {
+            if (request.jsonMode) {
                 put("response_format", buildJsonObject { put("type", JsonPrimitive("json_object")) })
             }
         }

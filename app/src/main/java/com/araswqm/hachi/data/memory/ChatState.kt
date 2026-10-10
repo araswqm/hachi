@@ -8,7 +8,8 @@ import com.araswqm.hachi.core.Tuning
  * Sema degistirmeden (DB surumu 1 kalir) "sohbet kapandi mi?" bilgisini ve
  * konusmanin nerede kaldigina dair kisa aciklamayi birlikte tasir.
  *
- * Bicim: `"kapandi|aciklama"` veya `"acik|aciklama"`; aciklama bos olabilir.
+ * Bicim: `"closed|aciklama"` veya `"open|aciklama"`; aciklama bos olabilir.
+ * Kodlar Ingilizcedir (§2.2: kalici hafiza verisi daima Ingilizce).
  */
 data class ChatState(
     val closed: Boolean,
@@ -22,10 +23,10 @@ data class ChatState(
     }
 
     companion object {
-        const val CLOSED = "kapandi"
-        const val OPEN = "acik"
+        const val CLOSED = "closed"
+        const val OPEN = "open"
 
-        /** Toleransli cozumleme: taninmayan bicimde "acik" varsayilir. */
+        /** Toleransli cozumleme: taninmayan bicimde "open" varsayilir. */
         fun decode(raw: String): ChatState {
             if (raw.isBlank()) return ChatState(closed = false, description = "")
             val idx = raw.indexOf('|')

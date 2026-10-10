@@ -50,6 +50,13 @@ data class CharacterEntity(
     /** Kullanici bu karakter icin kendiliğinden mesaji kapatti mi. */
     val proactiveEnabled: Boolean = true,
 
+    /**
+     * Bu sohbette kullanilacak persona (§3). `null` ise varsayilan (secili)
+     * persona kullanilir. Persona silinirse Room CASCADE yerine DAO ile
+     * null'lanir (bkz. [com.araswqm.hachi.data.db.dao.CharacterDao.clearPersona]).
+     */
+    val personaId: String? = null,
+
     val createdAt: Long,
     val updatedAt: Long,
     val lastMessageAt: Long? = null,

@@ -1,5 +1,6 @@
 package com.araswqm.hachi.data.memory
 
+import com.araswqm.hachi.core.IntimacyLevel
 import com.araswqm.hachi.core.Tuning
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
@@ -51,12 +52,12 @@ class IntimacyEngine @Inject constructor() {
         return max(0.0, storedScore - days * Tuning.INTIMACY_DAILY_DECAY)
     }
 
-    /** Seviye adi; esikler [Tuning]'den gelir. Ust sinir harictir. */
-    fun level(score: Double): String = when {
-        score < Tuning.LEVEL_FAMILIAR_MIN -> "Yabancı"
-        score < Tuning.LEVEL_FRIEND_MIN -> "Tanıdık"
-        score < Tuning.LEVEL_CLOSE_MIN -> "Arkadaş"
-        else -> "Yakın"
+    /** Seviye; esikler [Tuning]'den gelir. Ust sinir harictir. (§5 dil bagimsiz) */
+    fun level(score: Double): IntimacyLevel = when {
+        score < Tuning.LEVEL_FAMILIAR_MIN -> IntimacyLevel.STRANGER
+        score < Tuning.LEVEL_FRIEND_MIN -> IntimacyLevel.ACQUAINTANCE
+        score < Tuning.LEVEL_CLOSE_MIN -> IntimacyLevel.FRIEND
+        else -> IntimacyLevel.CLOSE
     }
 
     /** 0–100 araligina kirpilmis guvenli ham puan. */

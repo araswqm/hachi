@@ -4,6 +4,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -16,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
@@ -30,6 +32,7 @@ import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -37,9 +40,12 @@ import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -66,6 +72,7 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextOverflow
@@ -77,6 +84,7 @@ import com.araswqm.hachi.data.ai.Placeholders
 import com.araswqm.hachi.ui.common.CharacterAvatar
 import com.araswqm.hachi.ui.common.MarkdownText
 import com.araswqm.hachi.ui.common.relativeTime
+import com.araswqm.hachi.ui.common.rememberHaptics
 import java.io.File
 import kotlinx.coroutines.launch
 
@@ -103,9 +111,11 @@ fun ChatScreen(
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
     val listState = rememberLazyListState()
+    // §7.2: ayar anahtarini izleyen dokunsal geri bildirim.
+    val haptics = rememberHaptics()
 
-    var input by remember { mutableStateOf("") }
     var menuOpen by remember { mutableStateOf(false) }
+    var assistantOpen by remember { mutableStateOf(false) }
     var actionTarget by remember { mutableStateOf<ChatMessage?>(null) }
     var editTarget by remember { mutableStateOf<ChatMessage?>(null) }
     var deleteTarget by remember { mutableStateOf<ChatMessage?>(null) }
@@ -113,8 +123,8 @@ fun ChatScreen(
     val characterName = character?.name?.takeIf { it.isNotBlank() }
         ?: stringResource(R.string.debug_deleted_character)
 
-    // §8.2: balon kenarlarindaki avatarlar. Karakter dairesi solda, persona
-    // hafif yuvarlatilmis kare olarak sagda cizilir.
+    // §8.2: balon kenarlarindaki avatarlar. Karakter solda, persona sagda;
+    // ikisi de yuvarlatilmis kare ([BUBBLE_AVATAR_SHAPE]).
     val characterAvatar = AvatarData(
         file = character?.avatarPath?.let { File(context.filesDir, it) },
         name = characterName,
@@ -129,13 +139,23 @@ fun ChatScreen(
     // Hata: snackbar + (anahtar yoksa) Ayarlar kisayolu.
     LaunchedEffect(uiState.error?.id) {
         val error = uiState.error ?: return@LaunchedEffect
-        val base = if (error.needsApiKey) {
-            context.getString(R.string.chat_error_no_api_key)
-        } else {
-            context.getString(R.string.chat_error_generic)
+        val base = when {
+            // Yerellestirilebilir hata: metin kaynaktan cozulur. Parametreli
+            // kaynaklarda (or. "X yanit vermedi, Y'ye gecildi") argumanlar da
+            // kaynaktan cozulur ki diller arasi sira farki sorun cikarmasin.
+            error.resId != null -> if (error.resArgResIds.isEmpty()) {
+                context.getString(error.resId)
+            } else {
+                context.getString(
+                    error.resId,
+                    *error.resArgResIds.map { context.getString(it) }.toTypedArray(),
+                )
+            }
+            error.needsApiKey -> context.getString(R.string.chat_error_no_api_key)
+            else -> context.getString(R.string.chat_error_generic)
         }
         val detail = error.message.trim()
-        val text = if (!error.needsApiKey && detail.isNotBlank()) {
+        val text = if (error.resId == null && !error.needsApiKey && detail.isNotBlank()) {
             "$base\n${context.getString(R.string.chat_error_detail, detail)}"
         } else {
             base
@@ -159,6 +179,12 @@ fun ChatScreen(
         if (scrollTarget >= 0) runCatching { listState.animateScrollToItem(scrollTarget) }
     }
 
+    // §7.2: akis sirasinda cok hafif dokunsal tik. Esikler `Haptics.tick`
+    // icinde uygulanir (parca uzunlugu + iki tik arasi sure).
+    LaunchedEffect(uiState.streamingText) {
+        if (uiState.streamingText.isNotBlank()) haptics.tick(uiState.streamingText)
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -180,7 +206,7 @@ fun ChatScreen(
                     }
                 },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(onClick = { haptics.tap(); onBack() }) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = stringResource(R.string.action_back),
@@ -189,7 +215,7 @@ fun ChatScreen(
                 },
                 actions = {
                     Box {
-                        IconButton(onClick = { menuOpen = true }) {
+                        IconButton(onClick = { haptics.tap(); menuOpen = true }) {
                             Icon(
                                 imageVector = Icons.Filled.MoreVert,
                                 contentDescription = stringResource(R.string.cd_more_options),
@@ -235,7 +261,7 @@ fun ChatScreen(
                                 avatar = if (message.fromUser) personaAvatar else characterAvatar,
                                 showRegenerate = uiState.canRegenerate &&
                                     message.id == uiState.messages.lastOrNull()?.id,
-                                onLongPress = { actionTarget = message },
+                                onLongPress = { haptics.tap(); actionTarget = message },
                                 onRegenerate = viewModel::regenerate,
                                 onVariant = { index -> viewModel.setVariant(message.id, index) },
                             )
@@ -254,17 +280,34 @@ fun ChatScreen(
             }
 
             Composer(
-                value = input,
-                onValueChange = { input = it },
+                value = uiState.input,
+                onValueChange = viewModel::onInputChange,
                 isGenerating = uiState.isGenerating,
-                onSend = {
-                    val text = input
-                    input = ""
-                    viewModel.send(text)
-                },
+                assistantBusy = uiState.assistantBusy,
+                canUseAssistant = uiState.canUseAssistant,
+                onAssistant = { assistantOpen = true },
+                onSend = viewModel::send,
                 onStop = viewModel::stop,
             )
         }
+    }
+
+    // §7.1 Astroid: taslak asistani menusu (uygulamanin ilk alt sayfasi).
+    if (assistantOpen) {
+        AssistantSheet(
+            busy = uiState.assistantBusy,
+            hasDraft = uiState.input.isNotBlank(),
+            canUse = uiState.canUseAssistant,
+            onEnhance = {
+                assistantOpen = false
+                viewModel.enhanceDraft()
+            },
+            onWrite = {
+                assistantOpen = false
+                viewModel.writeForMe()
+            },
+            onDismiss = { assistantOpen = false },
+        )
     }
 
     // --- Mesaj eylemleri ---
@@ -337,8 +380,11 @@ private const val STREAMING_KEY = "streaming"
 private val AVATAR_SIZE = 30.dp
 private val AVATAR_SPACING = 6.dp
 
-/** Persona avatarı: daire degil, hafif yuvarlatilmis kare (§8.2). */
-private val PERSONA_AVATAR_SHAPE = RoundedCornerShape(10.dp)
+/**
+ * Balon kenarindaki avatarlar (§8.2): karakter de persona da hafif
+ * yuvarlatilmis kare. Yalnizca ust bar avatari daire kalir.
+ */
+private val BUBBLE_AVATAR_SHAPE = RoundedCornerShape(10.dp)
 
 /**
  * Balondaki avatar icin gereken veriler; karakter ve persona avatarlari ayni
@@ -395,9 +441,9 @@ private fun MessageRow(
         horizontalArrangement = if (fromUser) Arrangement.End else Arrangement.Start,
         verticalAlignment = Alignment.Bottom,
     ) {
-        // §8.2: karakter avatari balonun SOLUNDA (daire).
+        // §8.2: karakter avatari balonun SOLUNDA (yuvarlatilmis kare).
         if (!fromUser) {
-            MessageAvatar(avatar = avatar, shape = CircleShape)
+            MessageAvatar(avatar = avatar, shape = BUBBLE_AVATAR_SHAPE)
             Spacer(Modifier.width(AVATAR_SPACING))
         }
 
@@ -436,10 +482,10 @@ private fun MessageRow(
             }
         }
 
-        // §8.2: persona avatarı balonun SAGINDA (hafif yuvarlatilmis kare).
+        // §8.2: persona avatarı balonun SAGINDA (yuvarlatilmis kare).
         if (fromUser) {
             Spacer(Modifier.width(AVATAR_SPACING))
-            MessageAvatar(avatar = avatar, shape = PERSONA_AVATAR_SHAPE)
+            MessageAvatar(avatar = avatar, shape = BUBBLE_AVATAR_SHAPE)
         }
     }
 }
@@ -486,14 +532,18 @@ private fun Bubble(
             )
             if (message.isEdited) {
                 Text(
-                    text = " · düzenlendi",
+                    text = stringResource(R.string.chat_edited),
                     style = MaterialTheme.typography.labelSmall,
                     color = content.copy(alpha = 0.7f),
                 )
             }
             if (message.hasVariants) {
                 Text(
-                    text = " · ${message.variantIndex + 1}/${message.variantCount}",
+                    text = stringResource(
+                        R.string.chat_variant_position,
+                        message.variantIndex + 1,
+                        message.variantCount,
+                    ),
                     style = MaterialTheme.typography.labelSmall,
                     color = content.copy(alpha = 0.7f),
                 )
@@ -509,7 +559,7 @@ private fun StreamingBubble(text: String, waitingLabel: String, avatar: AvatarDa
         horizontalArrangement = Arrangement.Start,
         verticalAlignment = Alignment.Bottom,
     ) {
-        MessageAvatar(avatar = avatar, shape = CircleShape)
+        MessageAvatar(avatar = avatar, shape = BUBBLE_AVATAR_SHAPE)
         Spacer(Modifier.width(AVATAR_SPACING))
 
         Column(
@@ -568,12 +618,13 @@ private fun VariantSwitcher(
     onSelect: (Int) -> Unit,
     alignEnd: Boolean,
 ) {
+    val haptics = rememberHaptics()
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = if (alignEnd) Arrangement.End else Arrangement.Start,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        IconButton(onClick = { onSelect(index - 1) }, enabled = index > 0) {
+        IconButton(onClick = { haptics.tap(); onSelect(index - 1) }, enabled = index > 0) {
             Text("‹", style = MaterialTheme.typography.titleMedium)
         }
         Text(
@@ -581,7 +632,7 @@ private fun VariantSwitcher(
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        IconButton(onClick = { onSelect(index + 1) }, enabled = index < count - 1) {
+        IconButton(onClick = { haptics.tap(); onSelect(index + 1) }, enabled = index < count - 1) {
             Text("›", style = MaterialTheme.typography.titleMedium)
         }
     }
@@ -604,9 +655,13 @@ private fun Composer(
     value: String,
     onValueChange: (String) -> Unit,
     isGenerating: Boolean,
+    assistantBusy: Boolean,
+    canUseAssistant: Boolean,
+    onAssistant: () -> Unit,
     onSend: () -> Unit,
     onStop: () -> Unit,
 ) {
+    val haptics = rememberHaptics()
     Surface(tonalElevation = 3.dp) {
         Row(
             modifier = Modifier
@@ -614,6 +669,27 @@ private fun Composer(
                 .padding(horizontal = 12.dp, vertical = 8.dp),
             verticalAlignment = Alignment.Bottom,
         ) {
+            // §7.1: Astroid taslak asistani — giris kutusunun SOLUNDA.
+            if (assistantBusy) {
+                Box(
+                    modifier = Modifier.size(AVATAR_SIZE),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        strokeWidth = 2.dp,
+                    )
+                }
+            } else {
+                IconButton(onClick = { haptics.tap(); onAssistant() }, enabled = canUseAssistant) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_sparkle),
+                        contentDescription = stringResource(R.string.cd_assistant),
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                }
+            }
+
             OutlinedTextField(
                 value = value,
                 onValueChange = onValueChange,
@@ -629,7 +705,10 @@ private fun Composer(
             Spacer(Modifier.width(8.dp))
 
             FilledIconButton(
-                onClick = if (isGenerating) onStop else onSend,
+                onClick = {
+                    haptics.tap()
+                    if (isGenerating) onStop() else onSend()
+                },
                 enabled = isGenerating || value.isNotBlank(),
             ) {
                 if (isGenerating) {
@@ -646,6 +725,92 @@ private fun Composer(
             }
         }
     }
+}
+
+/**
+ * §7.1: taslak asistani alt sayfasi. Yaklasik olarak yarim yukseklikte acilir;
+ * iki islev sunar — eldeki taslagi zenginlestirme ve son mesaja uygun yanit
+ * yazma. Taslak bosken "gelistir" devre disidir.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AssistantSheet(
+    busy: Boolean,
+    hasDraft: Boolean,
+    canUse: Boolean,
+    onEnhance: () -> Unit,
+    onWrite: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val sheetState = rememberModalBottomSheetState()
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 24.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.assistant_title),
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
+            )
+
+            AssistantOption(
+                title = stringResource(R.string.assistant_enhance),
+                description = stringResource(
+                    if (hasDraft) R.string.assistant_enhance_desc
+                    else R.string.assistant_empty_draft,
+                ),
+                enabled = canUse && hasDraft,
+                onClick = onEnhance,
+            )
+
+            AssistantOption(
+                title = stringResource(R.string.assistant_write),
+                description = stringResource(R.string.assistant_write_desc),
+                enabled = canUse,
+                onClick = onWrite,
+            )
+        }
+    }
+}
+
+@Composable
+private fun AssistantOption(
+    title: String,
+    description: String,
+    enabled: Boolean,
+    onClick: () -> Unit,
+) {
+    val haptics = rememberHaptics()
+    ListItem(
+        headlineContent = {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge,
+                color = if (enabled) {
+                    MaterialTheme.colorScheme.onSurface
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
+            )
+        },
+        supportingContent = {
+            Text(text = description, style = MaterialTheme.typography.bodySmall)
+        },
+        leadingContent = {
+            Icon(
+                painter = painterResource(R.drawable.ic_sparkle),
+                contentDescription = null,
+                tint = if (enabled) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
+            )
+        },
+        modifier = Modifier.clickable(enabled = enabled, onClick = { haptics.tap(); onClick() }),
+    )
 }
 
 // ----------------------------------------------------------------------
@@ -684,26 +849,39 @@ private fun MessageActionsDialog(
     onDelete: () -> Unit,
     onRegenerate: () -> Unit,
 ) {
+    val haptics = rememberHaptics()
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.chat_actions_title)) },
         text = {
             Column {
-                TextButton(onClick = onCopy, modifier = Modifier.fillMaxWidth()) {
+                TextButton(
+                    onClick = { haptics.tap(); onCopy() },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
                     Text(stringResource(R.string.action_copy))
                 }
                 if (message.fromUser) {
-                    TextButton(onClick = onEdit, modifier = Modifier.fillMaxWidth()) {
+                    TextButton(
+                        onClick = { haptics.tap(); onEdit() },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
                         Text(stringResource(R.string.chat_edit_message))
                     }
                 }
                 if (canRegenerate) {
-                    TextButton(onClick = onRegenerate, modifier = Modifier.fillMaxWidth()) {
+                    TextButton(
+                        onClick = { haptics.tap(); onRegenerate() },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
                         Text(stringResource(R.string.chat_regenerate))
                     }
                 }
                 HorizontalDivider()
-                TextButton(onClick = onDelete, modifier = Modifier.fillMaxWidth()) {
+                TextButton(
+                    onClick = { haptics.tap(); onDelete() },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
                     Text(
                         text = stringResource(R.string.chat_delete_message),
                         color = MaterialTheme.colorScheme.error,

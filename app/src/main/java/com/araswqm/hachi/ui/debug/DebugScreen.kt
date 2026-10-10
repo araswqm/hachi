@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.araswqm.hachi.R
+import com.araswqm.hachi.core.IntimacyLevel
 import com.araswqm.hachi.ui.common.relativeTime
 import java.util.Locale
 
@@ -77,7 +78,7 @@ fun DebugScreen(
                         stringResource(
                             R.string.debug_intimacy_line,
                             row.name ?: deleted,
-                            row.level,
+                            stringResource(row.level.labelRes()),
                             row.raw,
                             formatAverage(row.average),
                         ),
@@ -128,6 +129,14 @@ fun DebugScreen(
 
 /** Pencere ortalaması; tek ondalık, cihaz yerelinden bağımsız (nokta ayracı). */
 private fun formatAverage(value: Double): String = String.format(Locale.US, "%.1f", value)
+
+/** §5: seviye etiketi yerellestirilmis kaynaktan. */
+private fun IntimacyLevel.labelRes(): Int = when (this) {
+    IntimacyLevel.STRANGER -> R.string.level_stranger
+    IntimacyLevel.ACQUAINTANCE -> R.string.level_acquaintance
+    IntimacyLevel.FRIEND -> R.string.level_friend
+    IntimacyLevel.CLOSE -> R.string.level_close
+}
 
 @Composable
 private fun Header(text: String, topPadding: Dp = 0.dp) {

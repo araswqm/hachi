@@ -2,152 +2,227 @@
 <resources>
     <string name="app_name">Hachi</string>
 
-    <!-- Ana gezinme -->
-    <string name="nav_chats">Sohbetler</string>
-    <string name="nav_settings">Ayarlar</string>
+    <!-- Main navigation -->
+    <string name="nav_chats">Chats</string>
+    <string name="nav_settings">Settings</string>
 
-    <!-- Genel -->
-    <string name="action_save">Kaydet</string>
-    <string name="action_cancel">İptal</string>
-    <string name="action_delete">Sil</string>
-    <string name="action_delete_confirm">Sil</string>
-    <string name="action_edit">Düzenle</string>
-    <string name="action_close">Kapat</string>
-    <string name="action_retry">Tekrar dene</string>
-    <string name="action_copy">Kopyala</string>
-    <string name="action_import">İçe aktar</string>
-    <string name="action_export">Dışa aktar</string>
-    <string name="action_confirm">Onayla</string>
-    <string name="action_ok">Tamam</string>
-    <string name="action_back">Geri</string>
-    <string name="action_details">Ayrıntılar</string>
+    <!-- General -->
+    <string name="action_save">Save</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_delete">Delete</string>
+    <string name="action_delete_confirm">Delete</string>
+    <string name="action_edit">Edit</string>
+    <string name="action_close">Close</string>
+    <string name="action_retry">Retry</string>
+    <string name="action_copy">Copy</string>
+    <string name="action_import">Import</string>
+    <string name="action_export">Export</string>
+    <string name="action_confirm">Confirm</string>
+    <string name="action_ok">OK</string>
+    <string name="action_back">Back</string>
+    <string name="action_details">Details</string>
 
-    <!-- Sohbet listesi -->
-    <string name="chats_title">Sohbetler</string>
-    <string name="chats_empty_title">Henüz karakter yok</string>
-    <string name="chats_empty_body">Başlamak için yeni bir karakter oluştur ya da bir karakter kartı içe aktar.</string>
-    <string name="chats_new_character">Yeni karakter</string>
-    <string name="chats_delete_character_title">Karakter silinsin mi?</string>
-    <string name="chats_delete_character_body">%1$s ve tüm sohbet geçmişi, hafızası ve takip mesajları kalıcı olarak silinecek. Bu işlem geri alınamaz.</string>
+    <!-- Chat list -->
+    <string name="chats_title">Chats</string>
+    <string name="chats_empty_title">No characters yet</string>
+    <string name="chats_empty_body">Create a new character or import a character card to get started.</string>
+    <string name="chats_new_character">New character</string>
+    <string name="chats_delete_character_title">Delete character?</string>
+    <string name="chats_delete_character_body">%1$s and all chat history, memory, and follow-ups will be permanently deleted. This cannot be undone.</string>
 
-    <!-- Sohbet ekranı -->
-    <string name="chat_input_hint">Bir şey yaz…</string>
-    <string name="chat_send">Gönder</string>
-    <string name="chat_regenerate">Yeniden üret</string>
-    <string name="chat_stop">Durdur</string>
-    <string name="chat_edit_message">Mesajı düzenle</string>
-    <string name="chat_delete_message">Mesajı sil</string>
-    <string name="chat_empty_state">%1$s ile sohbete başla</string>
-    <string name="chat_error_generic">Yanıt alınamadı. Tekrar dener misin?</string>
-    <string name="chat_error_no_api_key">Önce Ayarlar\'dan DeepSeek API anahtarını gir.</string>
-    <string name="chat_proactive_badge">Kendiliğinden yazdı</string>
-    <string name="chat_typing">%1$s yazıyor…</string>
-    <string name="chat_copied">Mesaj kopyalandı</string>
-    <string name="chat_error_detail">Ayrıntı: %1$s</string>
-    <string name="chat_actions_title">Mesaj</string>
-    <string name="chat_open_settings">Ayarlar</string>
+    <!-- Chat screen -->
+    <string name="chat_input_hint">Type something…</string>
+    <string name="chat_send">Send</string>
+    <string name="chat_regenerate">Regenerate</string>
+    <string name="chat_stop">Stop</string>
+    <string name="chat_edit_message">Edit message</string>
+    <string name="chat_delete_message">Delete message</string>
+    <string name="chat_empty_state">Start chatting with %1$s</string>
+    <string name="chat_error_generic">Couldn\'t get a response. Try again?</string>
+    <string name="chat_error_no_api_key">First enter your DeepSeek API key in Settings.</string>
+    <string name="chat_proactive_badge">Messaged on its own</string>
+    <string name="chat_typing">%1$s is typing…</string>
+    <string name="chat_copied">Message copied</string>
+    <string name="chat_error_detail">Details: %1$s</string>
+    <string name="chat_actions_title">Message</string>
+    <string name="chat_open_settings">Settings</string>
 
-    <!-- Karakter düzenleyici -->
-    <string name="editor_title_new">Yeni karakter</string>
-    <string name="editor_title_edit">Karakteri düzenle</string>
-    <string name="editor_field_name">İsim</string>
-    <string name="editor_field_description">Açıklama</string>
-    <string name="editor_field_personality">Kişilik</string>
-    <string name="editor_field_scenario">Senaryo</string>
-    <string name="editor_field_first_message">İlk mesaj</string>
-    <string name="editor_field_example_dialogs">Örnek diyaloglar</string>
-    <string name="editor_field_temperature">Yaratıcılık (temperature)</string>
-    <string name="editor_field_max_tokens">En fazla yanıt uzunluğu</string>
-    <string name="editor_avatar">Profil resmi</string>
-    <string name="editor_avatar_pick">Resim seç</string>
-    <string name="editor_avatar_remove">Resmi kaldır</string>
-    <string name="editor_name_required">İsim boş olamaz</string>
-    <string name="editor_import_card">Karakter kartı içe aktar</string>
-    <string name="editor_import_hint">JSON veya PNG karakter kartı (V1 / V2 / V3)</string>
-    <string name="editor_import_success">%1$s içe aktarıldı</string>
-    <string name="editor_import_failed">Kart okunamadı: %1$s</string>
-    <string name="editor_import_read_error">Dosya okunamadı</string>
-    <string name="editor_import_no_png_card">PNG içinde karakter kartı bulunamadı</string>
-    <string name="editor_import_bad_json">Geçerli JSON değil veya isim boş</string>
-    <string name="editor_export_card">Kartı dışa aktar (V2)</string>
-    <string name="editor_export_success">Kart kaydedildi</string>
+    <!-- Character editor -->
+    <string name="editor_title_new">New character</string>
+    <string name="editor_title_edit">Edit character</string>
+    <string name="editor_field_name">Name</string>
+    <string name="editor_field_description">Description</string>
+    <string name="editor_field_personality">Personality</string>
+    <string name="editor_field_scenario">Scenario</string>
+    <string name="editor_field_first_message">First message</string>
+    <string name="editor_field_example_dialogs">Example dialogs</string>
+    <string name="editor_field_temperature">Creativity (temperature)</string>
+    <string name="editor_field_max_tokens">Maximum response length</string>
+    <string name="editor_avatar">Profile picture</string>
+    <string name="editor_avatar_pick">Choose image</string>
+    <string name="editor_avatar_remove">Remove image</string>
+    <string name="editor_name_required">Name cannot be empty</string>
+    <string name="editor_import_card">Import character card</string>
+    <string name="editor_import_hint">JSON or PNG character card (V1 / V2 / V3)</string>
+    <string name="editor_import_success">%1$s imported</string>
+    <string name="editor_import_failed">Couldn\'t read card: %1$s</string>
+    <string name="editor_import_read_error">Couldn\'t read file</string>
+    <string name="editor_import_no_png_card">No character card found in the PNG</string>
+    <string name="editor_import_bad_json">Not valid JSON, or the name is empty</string>
+    <string name="editor_export_card">Export card (V2)</string>
+    <string name="editor_export_success">Card saved</string>
 
-    <!-- Karakter detay -->
-    <string name="detail_title">Karakter</string>
-    <string name="detail_tab_memory">Hafıza</string>
-    <string name="detail_tab_followups">Takip</string>
-    <string name="detail_tab_card">Kart</string>
-    <string name="detail_memory_title">Hafıza dosyası</string>
-    <string name="detail_memory_empty">Bu karakterle henüz yeterli sohbet yok. Hafıza, konuşma ilerledikçe otomatik oluşur.</string>
-    <string name="detail_memory_edit">Hafızayı düzenle</string>
-    <string name="detail_memory_saved">Hafıza kaydedildi</string>
-    <string name="detail_memory_lock_hint">Başındaki 🔒 satırlar özetleyici tarafından değiştirilmez.</string>
-    <string name="detail_source_manual">Elle oluşturuldu</string>
-    <string name="detail_source_v1">Karakter kartı V1</string>
-    <string name="detail_source_v2">Karakter kartı V2</string>
-    <string name="detail_source_v3">Karakter kartı V3</string>
-    <string name="detail_created_at">Oluşturulma: %1$s</string>
-    <string name="detail_followups_due">Vade: %1$s</string>
-    <string name="detail_followups_done">Tamamlandı</string>
-    <string name="detail_card_empty">Bu alan boş.</string>
-    <string name="editor_export_failed">Dışa aktarma başarısız</string>
-    <string name="detail_followups_title">Takip edilecek konular</string>
-    <string name="detail_followups_empty">Şu an takip edilecek bir konu yok.</string>
-    <string name="detail_proactive_toggle">Kendiliğinden mesaj gönderebilsin</string>
-    <string name="detail_proactive_hint">Sadece aranızdaki yakınlık yeterliyse ve rahatsız etmeyeceği saatlerde yazar.</string>
+    <!-- Character detail -->
+    <string name="detail_title">Character</string>
+    <string name="detail_tab_memory">Memory</string>
+    <string name="detail_tab_followups">Follow-ups</string>
+    <string name="detail_tab_card">Card</string>
+    <string name="detail_memory_title">Memory file</string>
+    <string name="detail_memory_empty">Not enough conversation with this character yet. Memory builds automatically as you talk.</string>
+    <string name="detail_memory_edit">Edit memory</string>
+    <string name="detail_memory_saved">Memory saved</string>
+    <string name="detail_memory_lock_hint">Lines starting with 🔒 are not changed by the summarizer.</string>
+    <string name="detail_source_manual">Created manually</string>
+    <string name="detail_source_v1">Character card V1</string>
+    <string name="detail_source_v2">Character card V2</string>
+    <string name="detail_source_v3">Character card V3</string>
+    <string name="detail_created_at">Created: %1$s</string>
+    <string name="detail_followups_due">Due: %1$s</string>
+    <string name="detail_followups_done">Done</string>
+    <string name="detail_card_empty">This field is empty.</string>
+    <string name="editor_export_failed">Export failed</string>
+    <string name="detail_followups_title">Topics to follow up on</string>
+    <string name="detail_followups_empty">There\'s nothing to follow up on right now.</string>
+    <string name="detail_proactive_toggle">Can send messages on its own</string>
+    <string name="detail_proactive_hint">Only writes when there\'s enough closeness between you and at hours when it won\'t disturb you.</string>
 
-    <!-- Ayarlar -->
-    <string name="settings_title">Ayarlar</string>
-    <string name="settings_section_api">DeepSeek bağlantısı</string>
-    <string name="settings_api_key">API anahtarı</string>
+    <!-- Settings -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_section_api">DeepSeek connection</string>
+    <string name="settings_api_key">API key</string>
     <string name="settings_api_key_hint">sk-…</string>
-    <string name="settings_api_key_saved">Kayıtlı</string>
-    <string name="settings_api_key_none">Ayarlanmadı</string>
-    <string name="settings_base_url">Sunucu adresi</string>
-    <string name="settings_model_chat">Sohbet modeli</string>
-    <string name="settings_model_summary">Özet modeli</string>
-    <string name="settings_model_decision">Karar modeli</string>
-    <string name="settings_section_persona">Persona (sen)</string>
-    <string name="settings_persona_name">Adın</string>
-    <string name="settings_persona_about">Kendin hakkında</string>
-    <string name="settings_section_proactive">Kendiliğinden mesajlar</string>
-    <string name="settings_dnd_title">Rahatsız etme saatleri</string>
-    <string name="settings_dnd_start">Başlangıç</string>
-    <string name="settings_dnd_end">Bitiş</string>
-    <string name="settings_battery_title">Arka planda çalışma</string>
-    <string name="settings_battery_body">Kendiliğinden mesajların zamanında gelmesi için Hachi\'nin pil optimizasyonundan muaf tutulması önerilir.</string>
-    <string name="settings_battery_action">Pil optimizasyonundan muaf tut</string>
-    <string name="settings_section_appearance">Görünüm</string>
-    <string name="settings_theme">Tema</string>
-    <string name="settings_theme_system">Sistem</string>
-    <string name="settings_theme_light">Açık</string>
-    <string name="settings_theme_dark">Koyu</string>
-    <string name="settings_dynamic_color">Dinamik renk</string>
-    <string name="settings_night_owl_desc">Gözü yormayan, OLED siyahı arka plan ve açık renkli yazılar</string>
-    <string name="settings_section_debug">Geliştirici</string>
-    <string name="settings_debug_screen">Hata ayıklama ekranı</string>
+    <string name="settings_api_key_saved">Saved</string>
+    <string name="settings_api_key_none">Not set</string>
+    <string name="settings_base_url">Base URL</string>
+    <string name="settings_model_chat">Chat model</string>
+    <string name="settings_model_summary">Summary model</string>
+    <string name="settings_model_decision">Decision model</string>
+    <string name="settings_section_persona">Persona (you)</string>
+    <string name="settings_persona_name">Your name</string>
+    <string name="settings_persona_about">About yourself</string>
+    <string name="settings_personas_manage">Manage personas</string>
+    <string name="settings_section_proactive">Spontaneous messages</string>
+    <string name="settings_dnd_title">Do not disturb hours</string>
+    <string name="settings_dnd_start">Start</string>
+    <string name="settings_dnd_end">End</string>
+    <string name="settings_battery_title">Background activity</string>
+    <string name="settings_battery_body">To get spontaneous messages on time, Hachi should be exempted from battery optimization.</string>
+    <string name="settings_battery_action">Exempt from battery optimization</string>
+    <string name="settings_section_appearance">Appearance</string>
+    <string name="settings_theme">Theme</string>
+    <string name="settings_theme_system">System</string>
+    <string name="settings_theme_light">Light</string>
+    <string name="settings_theme_dark">Dark</string>
+    <string name="settings_dynamic_color">Dynamic color</string>
+    <string name="settings_night_owl_desc">An easy-on-the-eyes theme with an OLED-black background and light text</string>
+    <string name="settings_haptics">Haptic feedback</string>
+    <string name="settings_haptics_desc">A very light vibration while a response is being written and when buttons are tapped</string>
+    <string name="settings_section_debug">Developer</string>
+    <string name="settings_debug_screen">Debug screen</string>
 
-    <!-- Hata ayıklama -->
-    <string name="debug_title">Hata ayıklama</string>
-    <string name="debug_intimacy">Yakınlık puanları</string>
-    <string name="debug_proactive_log">Kendiliğinden mesaj günlüğü</string>
-    <string name="debug_cache_tokens">Önbellek (hit / miss)</string>
-    <string name="debug_empty">Gösterilecek kayıt yok.</string>
-    <string name="debug_deleted_character">Silinmiş karakter</string>
-    <string name="debug_intimacy_line">%1$s — %2$s (ham %3$d, son 5 ort. %4$s)</string>
-    <string name="debug_cache_line">%1$s — hit %2$d / miss %3$d (%4$d istek)</string>
+    <!-- Debug -->
+    <string name="debug_title">Debug</string>
+    <string name="debug_intimacy">Intimacy scores</string>
+    <string name="debug_proactive_log">Spontaneous message log</string>
+    <string name="debug_cache_tokens">Cache (hit / miss)</string>
+    <string name="debug_empty">No records to show.</string>
+    <string name="debug_deleted_character">Deleted character</string>
+    <string name="debug_intimacy_line">%1$s — %2$s (raw %3$d, last 5 avg. %4$s)</string>
+    <string name="debug_cache_line">%1$s — hit %2$d / miss %3$d (%4$d requests)</string>
     <string name="debug_log_entry">%1$s · %2$s / %3$s</string>
     <string name="settings_version">Hachi %1$s</string>
 
-    <!-- Bildirim -->
-    <string name="notif_channel_name">Karakter mesajları</string>
-    <string name="notif_channel_description">Karakterlerin kendiliğinden gönderdiği mesajlar</string>
+    <!-- Personas (§3) -->
+    <string name="personas_title">Personas</string>
+    <string name="personas_add">Add persona</string>
+    <string name="personas_empty">No personas yet. Add one with the + in the top right.</string>
+    <string name="personas_default">Default</string>
+    <string name="personas_unnamed">Unnamed</string>
+    <string name="personas_edit_title">Edit persona</string>
+    <string name="personas_name">Name</string>
+    <string name="personas_about">About</string>
+    <string name="personas_delete_title">Delete persona?</string>
+    <string name="personas_delete_body">%1$s will be deleted. Chats using it will revert to the default persona.</string>
+    <string name="detail_persona_label">Persona to use in this chat</string>
 
-    <!-- İçerik açıklamaları -->
-    <string name="cd_character_avatar">Karakter resmi</string>
-    <string name="cd_persona_avatar">Persona resmi</string>
-    <string name="cd_unread">Okunmamış</string>
-    <string name="cd_more_options">Diğer seçenekler</string>
-    <string name="cd_variant_previous">Önceki varyant</string>
-    <string name="cd_variant_next">Sonraki varyant</string>
+    <!-- Notifications -->
+    <string name="notif_channel_name">Character messages</string>
+    <string name="notif_channel_description">Messages characters send on their own</string>
+    <string name="notif_channel_description_char">Notify when %1$s messages you on its own.</string>
+    <string name="notif_channel_fallback_name">Character</string>
+    <string name="notif_permission_title">Allow notifications</string>
+    <string name="notif_permission_body">We need notification permission to let you know when characters message you on their own.</string>
+    <string name="notif_permission_action">Allow</string>
+    <string name="notif_permission_granted">Notifications on</string>
+
+    <!-- Draft assistant (Astroid, §7.1) -->
+    <string name="assistant_title">Writing assistant</string>
+    <string name="assistant_enhance">Improve my draft</string>
+    <string name="assistant_enhance_desc">Makes the text you wrote more fluent and effective</string>
+    <string name="assistant_write">Write something for me</string>
+    <string name="assistant_write_desc">Produces a draft reply suited to the last message</string>
+    <string name="assistant_empty_draft">Write something in the box first.</string>
+    <string name="assistant_failed">Couldn\'t produce a draft</string>
+    <string name="assistant_working">Writing…</string>
+    <string name="cd_assistant">Writing assistant</string>
+
+    <!-- Provider fallback (§6) -->
+    <string name="chat_provider_switched">%1$s didn\'t respond, switched to %2$s.</string>
+
+    <!-- Content descriptions -->
+    <string name="cd_character_avatar">Character image</string>
+    <string name="cd_persona_avatar">Persona image</string>
+    <string name="cd_unread">Unread</string>
+    <string name="cd_more_options">More options</string>
+    <string name="cd_variant_previous">Previous variant</string>
+    <string name="cd_variant_next">Next variant</string>
+
+    <!-- Language -->
+    <string name="settings_section_language">Language</string>
+    <string name="settings_language">Language</string>
+    <string name="settings_language_system">System</string>
+
+    <!-- Intimacy levels (only shown on the debug screen) -->
+    <string name="level_stranger">Stranger</string>
+    <string name="level_acquaintance">Acquaintance</string>
+    <string name="level_friend">Friend</string>
+    <string name="level_close">Close</string>
+
+    <!-- Short time expressions -->
+    <string name="time_now">now</string>
+    <string name="time_minutes">%1$d min</string>
+    <string name="time_hours">%1$dh</string>
+    <string name="time_days">%1$dd</string>
+
+    <!-- Chat message suffixes -->
+    <string name="chat_edited"> · edited</string>
+    <string name="chat_variant_position"> · %1$d/%2$d</string>
+
+    <!-- Providers (§6) -->
+    <string name="settings_section_providers">AI providers</string>
+    <string name="settings_providers_hint">Hachi tries these in order and uses the first enabled provider that has a key. If it fails, it automatically falls back to the next one.</string>
+    <string name="settings_provider_enabled">Enabled</string>
+    <string name="settings_provider_api_key">API key</string>
+    <string name="settings_provider_base_url">Base URL</string>
+    <string name="settings_provider_model_chat">Chat model</string>
+    <string name="settings_provider_model_summary">Summary model</string>
+    <string name="settings_provider_model_decision">Decision model</string>
+    <string name="settings_provider_move_up">Move up</string>
+    <string name="settings_provider_move_down">Move down</string>
+    <string name="settings_provider_needs_key">Add an API key to use this provider</string>
+    <string name="provider_deepseek">DeepSeek</string>
+    <string name="provider_openai">OpenAI</string>
+    <string name="provider_anthropic">Anthropic</string>
+    <string name="provider_gemini">Gemini</string>
+    <string name="provider_mistral">Mistral</string>
 </resources>

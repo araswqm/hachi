@@ -31,12 +31,13 @@ class Notifications @Inject constructor(
 
     fun ensureChannel(characterId: String, characterName: String) {
         val manager = context.getSystemService(NotificationManager::class.java) ?: return
+        val name = characterName.ifBlank { context.getString(R.string.notif_channel_fallback_name) }
         val channel = NotificationChannel(
             channelId(characterId),
-            characterName,
+            name,
             NotificationManager.IMPORTANCE_DEFAULT,
         ).apply {
-            description = "$characterName sana kendiliğinden yazdığında bildir."
+            description = context.getString(R.string.notif_channel_description_char, name)
         }
         manager.createNotificationChannel(channel)
     }

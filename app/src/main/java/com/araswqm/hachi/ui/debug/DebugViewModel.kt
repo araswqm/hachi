@@ -2,6 +2,7 @@ package com.araswqm.hachi.ui.debug
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.araswqm.hachi.core.IntimacyLevel
 import com.araswqm.hachi.core.Tuning
 import com.araswqm.hachi.data.db.dao.CacheStatRow
 import com.araswqm.hachi.data.db.dao.MessageDao
@@ -22,7 +23,8 @@ import kotlinx.serialization.json.Json
 /** Yakınlık satırı: karakter adı, seviye, son ham puan ve pencere ortalaması. */
 data class IntimacyRow(
     val name: String?,
-    val level: String,
+    /** Dil-bagimsiz seviye; ekran `@StringRes` ile yerellestirir (§5). */
+    val level: IntimacyLevel,
     val raw: Int,
     val average: Double,
 )

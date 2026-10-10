@@ -5,17 +5,23 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.lifecycleScope
+import com.araswqm.hachi.core.LocaleController
+import com.araswqm.hachi.data.settings.SettingsRepository
 import com.araswqm.hachi.notify.Notifications
 import com.araswqm.hachi.ui.HachiRoot
+import com.araswqm.hachi.ui.common.LocalHapticsEnabled
 import com.araswqm.hachi.ui.settings.SettingsViewModel
 import com.araswqm.hachi.ui.theme.HachiTheme
 import com.araswqm.hachi.work.WorkScheduler
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.launch
 
 /**
  * Tek etkinlik (single-activity) mimarisi; tum ekranlar Compose ile cizilir.
@@ -39,11 +45,19 @@ class MainActivity : ComponentActivity() {
 
     @Inject lateinit var workScheduler: WorkScheduler
 
+    @Inject lateinit var settingsRepository: SettingsRepository
+
     /** Bildirimden gelen karakter kimligi; [HachiRoot] tukettiğinde null'lanir. */
     private val pendingChat = MutableStateFlow<String?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // §5: kayitli arayuz dili tercihini framework'e uygula. Ayni deger icin
+        // cagri etkisizdir (aktivite yeniden kurulmaz); yalnizca gercekten farkli
+        // oldugunda (or. yedekten yeni kurulum) bir kez yeniden kurulur.
+        lifecycleScope.launch {
+            LocaleController.apply(this@MainActivity, settingsRepository.currentSettings().languageTag)
+        }
         enableEdgeToEdge()
         pendingChat.value = intent.characterIdExtra()
 
@@ -57,10 +71,14 @@ class MainActivity : ComponentActivity() {
                 dynamicColor = theme.dynamicColor,
                 nightOwl = theme.nightOwl,
             ) {
-                HachiRoot(
-                    pendingChatId = pendingChatId,
-                    onPendingChatHandled = { pendingChat.value = null },
-                )
+                // §7.2: dokunsal geri bildirim anahtari tum agaca buradan iner;
+                // ekranlar `rememberHaptics()` ile okur.
+                CompositionLocalProvider(LocalHapticsEnabled provides theme.hapticsEnabled) {
+                    HachiRoot(
+                        pendingChatId = pendingChatId,
+                        onPendingChatHandled = { pendingChat.value = null },
+                    )
+                }
             }
         }
     }

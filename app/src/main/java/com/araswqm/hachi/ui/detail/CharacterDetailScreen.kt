@@ -16,11 +16,14 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
@@ -54,6 +57,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.araswqm.hachi.R
 import com.araswqm.hachi.data.db.entity.CharacterEntity
 import com.araswqm.hachi.data.db.entity.FollowupEntity
+import com.araswqm.hachi.data.db.entity.PersonaEntity
 import com.araswqm.hachi.ui.common.CharacterAvatar
 import com.araswqm.hachi.ui.common.MarkdownText
 import com.araswqm.hachi.ui.common.fullDate
@@ -78,6 +82,7 @@ fun CharacterDetailScreen(
 ) {
     val character by viewModel.character.collectAsStateWithLifecycle()
     val followups by viewModel.followups.collectAsStateWithLifecycle()
+    val personas by viewModel.personas.collectAsStateWithLifecycle()
     val memory by viewModel.memory.collectAsStateWithLifecycle()
     val loadingMemory by viewModel.loadingMemory.collectAsStateWithLifecycle()
     val message by viewModel.message.collectAsStateWithLifecycle()
@@ -171,6 +176,12 @@ fun CharacterDetailScreen(
             ProactiveRow(
                 enabled = current.proactiveEnabled,
                 onToggle = viewModel::setProactiveEnabled,
+            )
+
+            PersonaPickerRow(
+                personas = personas,
+                selectedId = current.personaId,
+                onSelect = viewModel::setPersona,
             )
 
             HorizontalDivider()
@@ -298,6 +309,59 @@ private fun ProactiveRow(enabled: Boolean, onToggle: (Boolean) -> Unit) {
         }
         Spacer(Modifier.width(12.dp))
         Switch(checked = enabled, onCheckedChange = onToggle)
+    }
+}
+
+/**
+ * Sohbet-basina persona secimi (§3). "Varsayilan" secilirse `personaId` null
+ * olur ve genel varsayilan persona kullanilir.
+ */
+@Composable
+private fun PersonaPickerRow(
+    personas: List<PersonaEntity>,
+    selectedId: String?,
+    onSelect: (String?) -> Unit,
+) {
+    var open by remember { mutableStateOf(false) }
+    val selectedName = personas.firstOrNull { it.id == selectedId }?.name?.ifBlank { null }
+
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(
+            text = stringResource(R.string.detail_persona_label),
+            style = MaterialTheme.typography.bodyLarge,
+        )
+        Box {
+            OutlinedButton(onClick = { open = true }) {
+                Text(
+                    text = selectedName ?: stringResource(R.string.personas_default),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Spacer(Modifier.width(4.dp))
+                Icon(
+                    imageVector = Icons.Filled.ArrowDropDown,
+                    contentDescription = null,
+                )
+            }
+            DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.personas_default)) },
+                    onClick = {
+                        open = false
+                        if (selectedId != null) onSelect(null)
+                    },
+                )
+                personas.forEach { persona ->
+                    DropdownMenuItem(
+                        text = { Text(persona.name.ifBlank { stringResource(R.string.personas_unnamed) }) },
+                        onClick = {
+                            open = false
+                            if (persona.id != selectedId) onSelect(persona.id)
+                        },
+                    )
+                }
+            }
+        }
     }
 }
 

@@ -5,9 +5,13 @@ import android.content.Context
 import android.content.res.Configuration
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.araswqm.hachi.core.LocaleController
 import com.araswqm.hachi.core.Tuning
+import com.araswqm.hachi.data.ai.provider.ModelRole
+import com.araswqm.hachi.data.ai.provider.ProviderId
 import com.araswqm.hachi.data.db.entity.PersonaEntity
 import com.araswqm.hachi.data.repo.PersonaRepository
+import com.araswqm.hachi.data.settings.AppLanguage
 import com.araswqm.hachi.data.settings.AppSettings
 import com.araswqm.hachi.data.settings.SettingsRepository
 import com.araswqm.hachi.data.settings.ThemeMode
@@ -26,6 +30,8 @@ data class ThemeState(
     val darkTheme: Boolean,
     val dynamicColor: Boolean,
     val nightOwl: Boolean,
+    /** §7.2: kok dokunsal geri bildirim anahtari ([LocalHapticsEnabled]). */
+    val hapticsEnabled: Boolean = true,
 )
 
 /**
@@ -58,9 +64,6 @@ class SettingsViewModel @Inject constructor(
     val settings: StateFlow<AppSettings> = settingsRepository.settings
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AppSettings())
 
-    val hasApiKey: StateFlow<Boolean> = settingsRepository.hasApiKey
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
-
     val persona: StateFlow<PersonaEntity?> = personaRepository.observeSelected()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
@@ -73,6 +76,7 @@ class SettingsViewModel @Inject constructor(
             },
             dynamicColor = current.dynamicColor,
             nightOwl = current.nightOwl,
+            hapticsEnabled = current.hapticsEnabled,
         )
     }.stateIn(
         viewModelScope,
@@ -85,27 +89,35 @@ class SettingsViewModel @Inject constructor(
     }
 
     // ------------------------------------------------------------------
-    // API / model
+    // Saglayicilar (§6)
     // ------------------------------------------------------------------
 
-    fun setApiKey(value: String) {
-        viewModelScope.launch { settingsRepository.setApiKey(value) }
+    /** Bir saglayicinin anahtarini yazar; bos deger anahtari siler. */
+    fun setProviderApiKey(id: ProviderId, value: String) {
+        viewModelScope.launch { settingsRepository.setProviderApiKey(id, value) }
     }
 
-    fun setBaseUrl(value: String) {
-        viewModelScope.launch { settingsRepository.setBaseUrl(value) }
+    fun setProviderEnabled(id: ProviderId, enabled: Boolean) {
+        viewModelScope.launch { settingsRepository.setProviderEnabled(id, enabled) }
     }
 
-    fun setModelChat(value: String) {
-        viewModelScope.launch { settingsRepository.setModelChat(value) }
+    fun setProviderBaseUrl(id: ProviderId, value: String) {
+        viewModelScope.launch { settingsRepository.setProviderBaseUrl(id, value) }
     }
 
-    fun setModelSummary(value: String) {
-        viewModelScope.launch { settingsRepository.setModelSummary(value) }
+    fun setProviderModel(id: ProviderId, role: ModelRole, value: String) {
+        viewModelScope.launch { settingsRepository.setProviderModel(id, role, value) }
     }
 
-    fun setModelDecision(value: String) {
-        viewModelScope.launch { settingsRepository.setModelDecision(value) }
+    /** Zincirde sirayi degistirir (yukari = -1, asagi = +1). Sinirlarda yok sayilir. */
+    fun moveProvider(id: ProviderId, delta: Int) {
+        val order = settings.value.providerOrder.toMutableList()
+        val from = order.indexOf(id)
+        if (from < 0) return
+        val to = (from + delta).coerceIn(0, order.lastIndex)
+        if (to == from) return
+        order.add(to, order.removeAt(from))
+        viewModelScope.launch { settingsRepository.setProviderOrder(order) }
     }
 
     // ------------------------------------------------------------------
@@ -143,6 +155,19 @@ class SettingsViewModel @Inject constructor(
 
     fun setNightOwl(enabled: Boolean) {
         viewModelScope.launch { settingsRepository.setNightOwl(enabled) }
+    }
+
+    fun setHapticsEnabled(enabled: Boolean) {
+        viewModelScope.launch { settingsRepository.setHapticsEnabled(enabled) }
+    }
+
+    /**
+     * §5: arayuz dilini aninda uygular. Once framework'e bildirilir (aktivite
+     * yeniden kurulur ve metinler yeni dilde gelir), sonra kalici kaydedilir.
+     */
+    fun setLanguage(language: AppLanguage) {
+        LocaleController.apply(context, language.tag)
+        viewModelScope.launch { settingsRepository.setLanguage(language) }
     }
 
     override fun onCleared() {

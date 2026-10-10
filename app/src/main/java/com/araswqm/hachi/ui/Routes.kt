@@ -25,6 +25,9 @@ object Routes {
     /** Gizli hata ayiklama ekrani; Ayarlar'dan erisilir. */
     const val DEBUG = "debug"
 
+    /** Persona yonetimi (§3); Ayarlar'dan erisilir. */
+    const val PERSONAS = "personas"
+
     fun editor(characterId: String? = null): String =
         if (characterId.isNullOrBlank()) "editor"
         else "editor?$ARG_CHARACTER_ID=${Uri.encode(characterId)}"

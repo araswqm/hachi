@@ -1,5 +1,15 @@
 package com.araswqm.hachi.ui.chats
 
+import android.Manifest
+import android.annotation.SuppressLint
+import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
+import android.os.PowerManager
+import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -15,6 +25,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
@@ -23,6 +34,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -35,6 +47,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -45,17 +58,23 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.araswqm.hachi.R
 import com.araswqm.hachi.data.db.entity.CharacterEntity
 import com.araswqm.hachi.ui.common.CharacterAvatar
 import com.araswqm.hachi.ui.common.relativeTime
+import com.araswqm.hachi.ui.common.rememberHaptics
 import java.io.File
 
 /**
  * Sohbetler listesi. Yakinlik gostergesi BILEREK yok; yalnizca okunmamis
  * mesaj rozeti, avatar ve son aktivite zamani gorunur.
+ *
+ * §4: ilk girişte bildirim izni BIR KEZ istenir (`AppSettings.notifPermissionAsked`
+ * bayragi ile); bildirimler acikken pil optimizasyonu icin kapatilabilir bir
+ * kart gosterilir.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -68,14 +87,38 @@ fun ChatsListScreen(
     viewModel: ChatsViewModel = hiltViewModel(),
 ) {
     val characters by viewModel.characters.collectAsStateWithLifecycle()
+    val settings by viewModel.settings.collectAsStateWithLifecycle()
     var pendingDelete by remember { mutableStateOf<CharacterEntity?>(null) }
+    var batteryCardDismissed by remember { mutableStateOf(false) }
+
+    val context = LocalContext.current
+    val haptics = rememberHaptics()
+
+    // §4: sistem izin penceresi. Sonuc ne olursa olsun "soruldu" isaretlenir;
+    // kullanici reddederse bir daha rahatsiz edilmez.
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+        onResult = { },
+    )
+    LaunchedEffect(Unit) {
+        if (!settings.notifPermissionAsked) {
+            viewModel.markNotifPermissionAsked()
+            if (!context.hasNotificationPermission()) {
+                permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+    }
+
+    val showBatteryCard = !batteryCardDismissed &&
+        context.hasNotificationPermission() &&
+        !context.isIgnoringBatteryOptimizations()
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.chats_title)) },
                 actions = {
-                    IconButton(onClick = onOpenSettings) {
+                    IconButton(onClick = { haptics.tap(); onOpenSettings() }) {
                         Icon(
                             imageVector = Icons.Filled.Settings,
                             contentDescription = stringResource(R.string.nav_settings),
@@ -85,7 +128,7 @@ fun ChatsListScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = onNewCharacter) {
+            FloatingActionButton(onClick = { haptics.tap(); onNewCharacter() }) {
                 Icon(
                     imageVector = Icons.Filled.Add,
                     contentDescription = stringResource(R.string.chats_new_character),
@@ -93,29 +136,43 @@ fun ChatsListScreen(
             }
         },
     ) { padding ->
-        if (characters.isEmpty()) {
-            EmptyChats(
-                modifier = Modifier.fillMaxSize().padding(padding),
-            )
-        } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize().padding(padding),
-                contentPadding = PaddingValues(
-                    start = 16.dp,
-                    end = 16.dp,
-                    top = 8.dp,
-                    bottom = 96.dp,
-                ),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                items(characters, key = { it.id }) { character ->
-                    CharacterRow(
-                        character = character,
-                        onClick = { onOpenChat(character.id) },
-                        onEdit = { onEditCharacter(character.id) },
-                        onDetails = { onOpenDetails(character.id) },
-                        onDelete = { pendingDelete = character },
-                    )
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding),
+        ) {
+            if (showBatteryCard) {
+                BatteryOptimizationCard(
+                    onDismiss = { batteryCardDismissed = true },
+                    onRequest = {
+                        batteryCardDismissed = true
+                        context.requestIgnoreBatteryOptimizations()
+                    },
+                )
+            }
+
+            if (characters.isEmpty()) {
+                EmptyChats(modifier = Modifier.weight(1f))
+            } else {
+                LazyColumn(
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(
+                        start = 16.dp,
+                        end = 16.dp,
+                        top = 8.dp,
+                        bottom = 96.dp,
+                    ),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    items(characters, key = { it.id }) { character ->
+                        CharacterRow(
+                            character = character,
+                            onClick = { haptics.tap(); onOpenChat(character.id) },
+                            onEdit = { haptics.tap(); onEditCharacter(character.id) },
+                            onDetails = { haptics.tap(); onOpenDetails(character.id) },
+                            onDelete = { haptics.tap(); pendingDelete = character },
+                        )
+                    }
                 }
             }
         }
@@ -142,6 +199,54 @@ fun ChatsListScreen(
                 }
             },
         )
+    }
+}
+
+/**
+ * §4: pil optimizasyonu muafiyeti icin kapatilabilir M3 karti. Vandeville
+ * islerin (kendiliğinden mesajlar) Doze tarafindan durdurulmamasi icin onerilir.
+ */
+@Composable
+private fun BatteryOptimizationCard(
+    onDismiss: () -> Unit,
+    onRequest: () -> Unit,
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+        ),
+    ) {
+        Column(modifier = Modifier.padding(start = 16.dp, top = 12.dp, end = 8.dp, bottom = 4.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = stringResource(R.string.settings_battery_title),
+                    style = MaterialTheme.typography.titleSmall,
+                    modifier = Modifier.weight(1f),
+                )
+                IconButton(onClick = onDismiss) {
+                    Icon(
+                        imageVector = Icons.Filled.Close,
+                        contentDescription = stringResource(R.string.action_close),
+                    )
+                }
+            }
+            Text(
+                text = stringResource(R.string.settings_battery_body),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+            ) {
+                TextButton(onClick = onRequest) {
+                    Text(stringResource(R.string.settings_battery_action))
+                }
+            }
+        }
     }
 }
 
@@ -279,4 +384,30 @@ private fun EmptyChats(modifier: Modifier = Modifier) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
+}
+
+// ----------------------------------------------------------------------
+// Izin yardimcilari
+// ----------------------------------------------------------------------
+
+/** POST_NOTIFICATIONS verilmis mi? (minSdk 33 → izin her zaman vardir.) */
+private fun Context.hasNotificationPermission(): Boolean =
+    ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) ==
+        PackageManager.PERMISSION_GRANTED
+
+/** Uygulama pil optimizasyonundan muaf mi? */
+private fun Context.isIgnoringBatteryOptimizations(): Boolean {
+    val power = getSystemService(Context.POWER_SERVICE) as? PowerManager ?: return true
+    return power.isIgnoringBatteryOptimizations(packageName)
+}
+
+/**
+ * Pil optimizasyonundan muafiyet istegi. Zamanlanmis islerin Doze tarafindan
+ * tamamen durdurulmamasi icin gerekli; kullanici reddedebilir.
+ */
+@SuppressLint("BatteryLife")
+private fun Context.requestIgnoreBatteryOptimizations() {
+    val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
+        .setData(Uri.fromParts("package", packageName, null))
+    runCatching { startActivity(intent) }
 }

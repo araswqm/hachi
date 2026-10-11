@@ -23,6 +23,8 @@ You give a character a name, a personality, a backstory and an opening line, and
 
 ## Installing
 
+**[⬇ Install Hachi from here](https://github.com/araswqm/hachi/releases/latest)** — the releases page always has the newest `hachi-*.apk`.
+
 1. Copy the `hachi-*.apk` file to your phone.
 2. Open it and allow installation from unknown sources when Android asks.
 3. Launch **Hachi**.

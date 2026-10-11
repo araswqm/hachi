@@ -114,6 +114,13 @@ Manage them in **Settings → Personas** — each one can have its own avatar ph
 
 ---
 
+## Contributors
+
+- **[Araswqm](https://github.com/araswqm)** — the creator: idea, design and direction.
+- **Claude** ([Claude Code](https://claude.com/claude-code)) — co-wrote the code.
+
+---
+
 ## License
 
 Hachi is released under the **PolyForm Noncommercial License 1.0.0**. In short:

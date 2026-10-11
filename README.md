@@ -117,7 +117,7 @@ Manage them in **Settings → Personas** — each one can have its own avatar ph
 ## Contributors
 
 - **[Araswqm](https://github.com/araswqm)** — the creator: idea, design and direction.
-- **Claude** ([Claude Code](https://claude.com/claude-code)) — co-wrote the code.
+- **Claude** ([@claude](https://github.com/claude)) — co-wrote the code, with [Claude Code](https://claude.com/claude-code).
 
 ---
 

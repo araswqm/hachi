@@ -52,15 +52,16 @@ private data class FollowupItem(
 )
 
 /**
- * `memory.md` ozetleyici.
+ * `memory.md` ozetleyici (§8: hafiza sohbet bazlidir).
  *
  * Ne zaman calisir:
  *  - `SUMMARY_EVERY_MESSAGES` (10) mesaj birikince (sohbet akisindan),
  *  - uygulama arka plana gecerken ([com.araswqm.hachi.work.SummarizeWorker]).
  *
- * Karakter basina bir `Mutex` vardir; ayni karakter icin iki ozetleme asla
+ * Sohbet basina bir `Mutex` vardir; ayni sohbet icin iki ozetleme asla
  * ust uste binmez. Ham yakinlik puanlari [MemoryStateEntity] icinde birikir;
- * nihai puan [IntimacyEngine] tarafindan hesaplanir.
+ * nihai puan [IntimacyEngine] tarafindan hesaplanir. `characterId` yalnizca
+ * takip konulari (`followups`, karakter bazli) ve iliskili aramalar icin tutulur.
  */
 @Singleton
 class MemorySummarizer @Inject constructor(
@@ -78,23 +79,23 @@ class MemorySummarizer @Inject constructor(
 
     private val locks = ConcurrentHashMap<String, Mutex>()
 
-    private fun lockFor(characterId: String): Mutex = locks.getOrPut(characterId) { Mutex() }
+    private fun lockFor(chatId: String): Mutex = locks.getOrPut(chatId) { Mutex() }
 
     /** Ozetlenmeyi bekleyen yeterli mesaj var mi? */
-    suspend fun shouldSummarize(characterId: String): Boolean = withContext(io) {
-        val state = memoryDao.get(characterId)
+    suspend fun shouldSummarize(chatId: String): Boolean = withContext(io) {
+        val state = memoryDao.get(chatId)
         val lastId = state?.lastSummarizedMessageId ?: 0L
-        messageDao.countAfter(characterId, lastId) >= Tuning.SUMMARY_EVERY_MESSAGES
+        messageDao.countAfter(chatId, lastId) >= Tuning.SUMMARY_EVERY_MESSAGES
     }
 
     /**
      * Bekleyen mesajlari ozetler. [force] true ise mesaj sayisi esigi yok sayilir
      * (uygulama kapanisi). Basarili ozetlemede true doner.
      */
-    suspend fun summarize(characterId: String, force: Boolean = false): Boolean {
-        val lock = lockFor(characterId)
+    suspend fun summarize(chatId: String, characterId: String, force: Boolean = false): Boolean {
+        val lock = lockFor(chatId)
         if (lock.isLocked && !force) return false
-        return lock.withLock { runSummary(characterId, force) }
+        return lock.withLock { runSummary(chatId, characterId, force) }
     }
 
     /**
@@ -102,73 +103,60 @@ class MemorySummarizer @Inject constructor(
      *
      * [affectedMessageId] silinen ya da icerigi degisen mesajdir. Mesaj zaten
      * ozetlenmis bolgeye aitse (`id <= lastSummarizedMessageId`), hafiza "olmus
-     * gibi" kabul edilemez: imlec o mesajdan onceye cekilir, uretilmis bolumler
-     * tek bir uzun vadeli bloka indirilir ve kuyruk bastan ozetlenir. Kilitli
-     * kullanici notlari (`🔒`) korunur.
+     * gibi" kabul edilemez: hafiza BASTAN kurulur — kilitli kullanici notlari
+     * (`🔒`) korunur, gerisi sifirlanir ve kalan mesajlar yeniden ozetlenir.
      *
      * Mesaj henuz ozetlenmemisse imlec degismez; cagiran taraf yalnizca satiri
      * silmis olur ve bu yontem false doner.
      */
-    suspend fun rebuildFrom(characterId: String, affectedMessageId: Long): Boolean {
-        val lock = lockFor(characterId)
+    suspend fun rebuildFrom(chatId: String, characterId: String, affectedMessageId: Long): Boolean {
+        val lock = lockFor(chatId)
         // Kilit tutulurken mutex YENIDEN alinamaz (Kotlin mutex'i yeniden girmez);
         // bu yuzden icte dogrudan runSummary cagrilir.
         return lock.withLock {
-            val state = withContext(io) { memoryDao.get(characterId) } ?: return@withLock false
+            val state = withContext(io) { memoryDao.get(chatId) } ?: return@withLock false
             if (affectedMessageId > state.lastSummarizedMessageId) return@withLock false
 
-            val existing = withContext(io) { memoryRepository.read(characterId) }
+            // Hafizayi sifirdan kur: yalnizca kilitli kullanici notlari kalir.
+            val existing = withContext(io) { memoryRepository.read(chatId) }
             val doc = MemoryDocument.parse(existing)
-            val newCursor = withContext(io) {
-                messageDao.lastIdBefore(characterId, affectedMessageId)
-            } ?: 0L
-
-            // Uretilmis bolumler silinen mesaji da iceriyor olabilir; hangisinin
-            // hangi mesaja karsilik geldigi guvenilir sekilde bilinemez. Bu yuzden
-            // hepsi tek bir uzun vadeli bloga indirilir (yeni detayli ozetler
-            // uzerine taze bolumler olarak eklenir) ve kuyruk yeniden ozetlenir.
-            val collapsed = doc.copy(
-                relationship = "",
-                sections = doc.sections
-                    .flatMap { it.body.trim().lines() }
-                    .filter { it.isNotBlank() }
-                    .joinToString("\n")
-                    .let { body ->
-                        if (body.isBlank()) {
-                            emptyList()
-                        } else {
-                            listOf(MemorySection(MemoryDocument.LONG_TERM_TITLE, body))
-                        }
-                    },
-            )
+            val reset = MemoryDocument.empty().copy(lockedNotes = doc.lockedNotes)
 
             withContext(io) {
-                memoryRepository.write(characterId, collapsed.toText())
+                memoryRepository.save(chatId, reset.toText())
                 memoryDao.upsert(
                     state.copy(
-                        lastSummarizedMessageId = newCursor,
-                        summarizedMessageCount = messageDao.countUpTo(characterId, newCursor),
-                        sectionCount = collapsed.sections.size,
+                        lastSummarizedMessageId = 0L,
+                        summarizedMessageCount = 0,
+                        sectionCount = 0,
+                        chatState = "",
+                        characterFeeling = "",
                         updatedAt = System.currentTimeMillis(),
                     ),
                 )
             }
 
-            runSummary(characterId, force = true)
+            val rebuilt = runSummary(chatId, characterId, force = true)
+            // Kalan mesaj yoksa bos iskelet birakmak yerine dosyayi sil. Kilitli
+            // notlar varsa bunlar gercek iceriktir, korunur (silinmez).
+            if (!rebuilt && reset.lockedNotes.isEmpty()) {
+                withContext(io) { memoryRepository.delete(chatId) }
+            }
             true
         }
     }
 
-    private suspend fun runSummary(characterId: String, force: Boolean): Boolean {
+    private suspend fun runSummary(chatId: String, characterId: String, force: Boolean): Boolean {
         val character = withContext(io) { characterDao.getById(characterId) } ?: return false
-        val state = withContext(io) { memoryDao.get(characterId) } ?: MemoryStateEntity(characterId = characterId)
+        val state = withContext(io) { memoryDao.get(chatId) }
+            ?: MemoryStateEntity(chatId = chatId, characterId = characterId)
         val pending = withContext(io) {
-            messageDao.getAfter(characterId, state.lastSummarizedMessageId, Tuning.MEMORY_PENDING_MESSAGES_LIMIT)
+            messageDao.getAfter(chatId, state.lastSummarizedMessageId, Tuning.MEMORY_PENDING_MESSAGES_LIMIT)
         }
         if (pending.isEmpty()) return false
         if (!force && pending.size < Tuning.SUMMARY_EVERY_MESSAGES) return false
 
-        val existing = withContext(io) { memoryRepository.read(characterId) }
+        val existing = withContext(io) { memoryRepository.read(chatId) }
 
         val response = try {
             val result = router.complete(
@@ -197,12 +185,12 @@ class MemorySummarizer @Inject constructor(
             .let { doc -> shrinkLongTerm(doc) }
 
         withContext(io) {
-            memoryRepository.write(characterId, document.toText())
+            memoryRepository.write(chatId, document.toText())
 
             val rawHistory = decodeInts(state.intimacyRawHistoryJson) +
                 intimacy.clampRaw(response.intimacy)
             val window = rawHistory.takeLast(Tuning.INTIMACY_MOVING_AVERAGE_WINDOW)
-            val messageCount = messageDao.count(characterId)
+            val messageCount = messageDao.count(chatId)
             val streakDays = streakDays(pending)
             val score = intimacy.compose(window, messageCount, streakDays)
 

@@ -24,6 +24,10 @@
 
     <!-- Lista de chats -->
     <string name="chats_title">Chats</string>
+    <string name="chats_switch_cd">Chats</string>
+    <string name="chat_switch_title">Chats</string>
+    <string name="chat_switch_new">Nuevo chat</string>
+    <string name="chat_switch_untitled">Chat sin título</string>
     <string name="chats_empty_title">Aún no hay personajes</string>
     <string name="chats_empty_body">Crea un personaje nuevo o importa una tarjeta de personaje para empezar.</string>
     <string name="chats_new_character">Nuevo personaje</string>

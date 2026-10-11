@@ -24,6 +24,10 @@
 
     <!-- Sohbet listesi -->
     <string name="chats_title">Sohbetler</string>
+    <string name="chats_switch_cd">Sohbetler</string>
+    <string name="chat_switch_title">Sohbetler</string>
+    <string name="chat_switch_new">Yeni sohbet</string>
+    <string name="chat_switch_untitled">Başlıksız sohbet</string>
     <string name="chats_empty_title">Henüz karakter yok</string>
     <string name="chats_empty_body">Başlamak için yeni bir karakter oluştur ya da bir karakter kartı içe aktar.</string>
     <string name="chats_new_character">Yeni karakter</string>

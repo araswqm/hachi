@@ -4,8 +4,10 @@ import android.content.Context
 import com.araswqm.hachi.core.AppFiles
 import com.araswqm.hachi.core.IoDispatcher
 import com.araswqm.hachi.data.db.dao.CharacterDao
+import com.araswqm.hachi.data.db.dao.ChatDao
 import com.araswqm.hachi.data.db.dao.PersonaDao
 import com.araswqm.hachi.data.db.entity.CharacterEntity
+import com.araswqm.hachi.data.db.entity.ChatEntity
 import com.araswqm.hachi.data.db.entity.PersonaEntity
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
@@ -19,14 +21,16 @@ import kotlinx.coroutines.withContext
  * Kullanicinin kendi karakteri (persona).
  *
  * Birden fazla persona tutulabilir; biri "varsayilan" (secili) olur. Her sohbet
- * istege bagli olarak kendi personasini secebilir (§3): [resolve] once
- * `character.personaId`'ye bakar, yoksa varsayilana duser.
+ * istege bagli olarak kendi personasini secebilir (§3/§8): [resolve] once
+ * sohbetin `personaId`'sine, sonra karakterin `personaId`'sine bakar, yoksa
+ * varsayilana duser.
  */
 @Singleton
 class PersonaRepository @Inject constructor(
     @ApplicationContext private val context: Context,
     private val personaDao: PersonaDao,
     private val characterDao: CharacterDao,
+    private val chatDao: ChatDao,
     @IoDispatcher private val io: CoroutineDispatcher,
 ) {
 
@@ -66,12 +70,16 @@ class PersonaRepository @Inject constructor(
     }
 
     /**
-     * Bir sohbette kullanilacak persona (§3): once `character.personaId`, yoksa
-     * varsayilan (secili) persona. Ikisi de yoksa `null`.
+     * Bir sohbette kullanilacak persona (§3/§8): once sohbetin `personaId`'si,
+     * sonra karakterin `personaId`'si, en son varsayilan (secili) persona.
+     * Hicbiri yoksa `null`.
      */
-    suspend fun resolve(character: CharacterEntity?): PersonaEntity? = withContext(io) {
-        character?.personaId?.let { personaDao.getById(it) } ?: personaDao.getSelected()
-    }
+    suspend fun resolve(character: CharacterEntity?, chat: ChatEntity? = null): PersonaEntity? =
+        withContext(io) {
+            chat?.personaId?.let { personaDao.getById(it) }
+                ?: character?.personaId?.let { personaDao.getById(it) }
+                ?: personaDao.getSelected()
+        }
 
     suspend fun save(persona: PersonaEntity) = withContext(io) {
         val now = System.currentTimeMillis()
@@ -102,11 +110,12 @@ class PersonaRepository @Inject constructor(
     }
 
     /**
-     * Personayi siler: ona bagli sohbetler varsayilana dondurulur, avatar
-     * dosyasi silinir, seciliydiyse kalan ilk persona secilir.
+     * Personayi siler: ona bagli karakterler ve sohbetler varsayilana dondurulur,
+     * avatar dosyasi silinir, seciliydiyse kalan ilk persona secilir.
      */
     suspend fun delete(id: String) = withContext(io) {
         characterDao.clearPersona(id)
+        chatDao.clearPersona(id)
         personaDao.deleteById(id)
         avatarFile(id).delete()
         if (personaDao.getSelected() == null) {

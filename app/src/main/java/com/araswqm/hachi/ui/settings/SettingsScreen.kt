@@ -5,7 +5,6 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
@@ -58,7 +57,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.araswqm.hachi.BuildConfig
 import com.araswqm.hachi.R
-import com.araswqm.hachi.core.Tuning
 import com.araswqm.hachi.data.ai.provider.ModelRole
 import com.araswqm.hachi.data.settings.AppLanguage
 import com.araswqm.hachi.data.settings.ProviderView
@@ -76,17 +74,12 @@ import com.araswqm.hachi.data.settings.ThemeMode
 fun SettingsScreen(
     onBack: () -> Unit,
     onOpenPersonas: () -> Unit,
-    onOpenDebug: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val persona by viewModel.persona.collectAsStateWithLifecycle()
 
     val context = LocalContext.current
-
-    // Gizli hata ayiklama ekrani: surum satirina DEBUG_UNLOCK_TAPS kez dokununca acilir.
-    var taps by remember { mutableStateOf(0) }
-    var debugVisible by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -314,7 +307,7 @@ fun SettingsScreen(
             }
 
             // ----------------------------------------------------------
-            // Gizli: Gelistirici (surum satirina N kez dokununca acilir)
+            // Surum
             // ----------------------------------------------------------
             Spacer(Modifier.height(16.dp))
 
@@ -325,20 +318,8 @@ fun SettingsScreen(
                 textAlign = TextAlign.Center,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable {
-                        taps += 1
-                        if (taps >= Tuning.DEBUG_UNLOCK_TAPS) debugVisible = true
-                    }
                     .padding(vertical = 8.dp),
             )
-
-            if (debugVisible) {
-                SectionDivider()
-                SectionHeader(stringResource(R.string.settings_section_debug))
-                TextButton(onClick = onOpenDebug) {
-                    Text(stringResource(R.string.settings_debug_screen))
-                }
-            }
 
             Spacer(Modifier.height(24.dp))
         }

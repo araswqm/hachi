@@ -9,19 +9,19 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface MemoryStateDao {
 
-    @Query("SELECT * FROM memory_state WHERE characterId = :characterId")
-    suspend fun get(characterId: String): MemoryStateEntity?
+    @Query("SELECT * FROM memory_state WHERE chatId = :chatId")
+    suspend fun get(chatId: String): MemoryStateEntity?
 
-    @Query("SELECT * FROM memory_state WHERE characterId = :characterId")
-    fun observe(characterId: String): Flow<MemoryStateEntity?>
+    @Query("SELECT * FROM memory_state WHERE chatId = :chatId")
+    fun observe(chatId: String): Flow<MemoryStateEntity?>
 
-    /** Hata ayiklama ekrani: tum karakterlerin yakinlik durumu. */
+    /** Hata ayiklama ekrani: tum sohbetlerin yakinlik durumu. */
     @Query("SELECT * FROM memory_state")
     fun observeAll(): Flow<List<MemoryStateEntity>>
 
     @Upsert
     suspend fun upsert(state: MemoryStateEntity)
 
-    @Query("DELETE FROM memory_state WHERE characterId = :characterId")
-    suspend fun delete(characterId: String)
+    @Query("DELETE FROM memory_state WHERE chatId = :chatId")
+    suspend fun delete(chatId: String)
 }

@@ -11,11 +11,11 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 
 /**
- * Karakterin hafiza dosyasi: `files/memory/<characterId>.md`.
+ * Sohbet hafiza dosyasi: `files/memory/<chatId>.md`.
  *
- * Dosyanin ICERIGI (bolumler, iliski durumu blogu) bu asamada uretilmiyor;
- * Stage 1'de yalnizca okuma/yazma/dosya erisimi var. Ozetleyici Stage 3'te
- * bu sinifin uzerine kurulur.
+ * §8: hafiza artik sohbet bazlidir; anahtar karakter degil sohbet kimligidir.
+ * Dosyanin ICERIGI (bolumler, iliski durumu blogu) bu sinifta uretilmez; yalnizca
+ * okuma/yazma/dosya erisimi vardir. Ozetleyici bu sinifin uzerine kurulur.
  */
 @Singleton
 class MemoryRepository @Inject constructor(
@@ -23,26 +23,26 @@ class MemoryRepository @Inject constructor(
     @IoDispatcher private val io: CoroutineDispatcher,
 ) {
 
-    fun file(characterId: String): File = File(context.filesDir, AppFiles.memoryRelPath(characterId))
+    fun file(chatId: String): File = File(context.filesDir, AppFiles.memoryRelPath(chatId))
 
-    suspend fun exists(characterId: String): Boolean = withContext(io) { file(characterId).isFile }
+    suspend fun exists(chatId: String): Boolean = withContext(io) { file(chatId).isFile }
 
     /** Dosya yoksa bos metin doner. */
-    suspend fun read(characterId: String): String = withContext(io) {
-        val target = file(characterId)
+    suspend fun read(chatId: String): String = withContext(io) {
+        val target = file(chatId)
         if (!target.isFile) return@withContext ""
         runCatching { target.readText() }.getOrDefault("")
     }
 
-    suspend fun write(characterId: String, content: String) = withContext(io) {
-        val target = file(characterId)
+    suspend fun write(chatId: String, content: String) = withContext(io) {
+        val target = file(chatId)
         target.parentFile?.mkdirs()
         target.writeText(content)
     }
 
     /** Kullanici duzenlemesini kaydeder; tamamen bos metin dosyayi siler. */
-    suspend fun save(characterId: String, content: String) = withContext(io) {
-        val target = file(characterId)
+    suspend fun save(chatId: String, content: String) = withContext(io) {
+        val target = file(chatId)
         if (content.isBlank()) {
             target.delete()
         } else {
@@ -51,8 +51,8 @@ class MemoryRepository @Inject constructor(
         }
     }
 
-    suspend fun delete(characterId: String) = withContext(io) {
-        file(characterId).delete()
+    suspend fun delete(chatId: String) = withContext(io) {
+        file(chatId).delete()
         Unit
     }
 }

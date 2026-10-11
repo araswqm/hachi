@@ -271,12 +271,6 @@ object Tuning {
 
     const val NOTIFICATION_ID_BASE = 1000
 
-    /** Hata ayiklama ekraninda listelenen kayit sayisi. */
-    const val DEBUG_LOG_LIMIT = 50
-
-    /** Gizli hata ayiklama ekranini acmak icin surum satirina dokunma sayisi. */
-    const val DEBUG_UNLOCK_TAPS = 5
-
     /** onStop ozetlemesi icin OneTimeWorkRequest backoff ayarlari. */
     const val ONSTOP_SUMMARY_BACKOFF_SECONDS = 30L
     const val ONSTOP_SUMMARY_MAX_ATTEMPTS = 5

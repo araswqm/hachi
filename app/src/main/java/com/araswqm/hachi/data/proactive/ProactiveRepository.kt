@@ -11,11 +11,13 @@ import com.araswqm.hachi.data.ai.PromptBuilder
 import com.araswqm.hachi.data.ai.provider.LlmRouter
 import com.araswqm.hachi.data.ai.provider.ModelRole
 import com.araswqm.hachi.data.db.dao.CharacterDao
+import com.araswqm.hachi.data.db.dao.ChatDao
 import com.araswqm.hachi.data.db.dao.FollowupDao
 import com.araswqm.hachi.data.db.dao.MemoryStateDao
 import com.araswqm.hachi.data.db.dao.MessageDao
 import com.araswqm.hachi.data.db.dao.ProactiveLogDao
 import com.araswqm.hachi.data.db.entity.CharacterEntity
+import com.araswqm.hachi.data.db.entity.ChatEntity
 import com.araswqm.hachi.data.db.entity.FollowupEntity
 import com.araswqm.hachi.data.db.entity.MessageEntity
 import com.araswqm.hachi.data.db.entity.ProactiveLogEntity
@@ -56,6 +58,7 @@ import kotlinx.serialization.json.Json
 @Singleton
 class ProactiveRepository @Inject constructor(
     private val characterDao: CharacterDao,
+    private val chatDao: ChatDao,
     private val messageDao: MessageDao,
     private val memoryDao: MemoryStateDao,
     private val followupDao: FollowupDao,
@@ -84,7 +87,10 @@ class ProactiveRepository @Inject constructor(
     // ------------------------------------------------------------------
 
     private suspend fun checkOne(character: CharacterEntity, now: Long) {
-        val state = withContext(io) { memoryDao.get(character.id) }
+        // §8: kendiliğinden mesaj HER ZAMAN bir sohbete yazilir. Karakterin hic
+        // sohbeti yoksa (henuz konusulmamis) atlanir — yazacak yer yok.
+        val chat = withContext(io) { chatDao.getLatestForCharacter(character.id) } ?: return
+        val state = withContext(io) { memoryDao.get(chat.id) }
         val score = state?.let {
             intimacy.effectiveScore(it.intimacyScore, it.lastDecayAt, now)
         } ?: 0.0
@@ -118,7 +124,7 @@ class ProactiveRepository @Inject constructor(
             return
         }
 
-        decide(character, dueFollowups.firstOrNull(), now)
+        decide(character, chat, dueFollowups.firstOrNull(), now)
     }
 
     /**
@@ -184,10 +190,15 @@ class ProactiveRepository @Inject constructor(
     // LLM karari
     // ------------------------------------------------------------------
 
-    private suspend fun decide(character: CharacterEntity, dueFollowup: FollowupEntity?, now: Long) {
-        val memory = withContext(io) { memoryRepository.read(character.id) }
+    private suspend fun decide(
+        character: CharacterEntity,
+        chat: ChatEntity,
+        dueFollowup: FollowupEntity?,
+        now: Long,
+    ) {
+        val memory = withContext(io) { memoryRepository.read(chat.id) }
         val recent = withContext(io) {
-            messageDao.getLast(character.id, Tuning.RECENT_MESSAGES_IN_PROMPT).reversed()
+            messageDao.getLast(chat.id, Tuning.RECENT_MESSAGES_IN_PROMPT).reversed()
         }
         val userName = withContext(io) { personaRepository.getSelected()?.name }
 
@@ -244,11 +255,12 @@ class ProactiveRepository @Inject constructor(
             return
         }
 
-        send(character, userName, decision, dueFollowup, now, result.usage)
+        send(character, chat, userName, decision, dueFollowup, now, result.usage)
     }
 
     private suspend fun send(
         character: CharacterEntity,
+        chat: ChatEntity,
         userName: String?,
         decision: DecisionResponse,
         dueFollowup: FollowupEntity?,
@@ -262,6 +274,7 @@ class ProactiveRepository @Inject constructor(
             messageDao.insert(
                 MessageEntity(
                     characterId = character.id,
+                    chatId = chat.id,
                     role = MessageEntity.ROLE_ASSISTANT,
                     content = text,
                     variantsJson = json.encodeToString(listOf(text)),
@@ -271,6 +284,7 @@ class ProactiveRepository @Inject constructor(
                     isProactive = true,
                 ),
             )
+            chatDao.touchLastMessage(chat.id, now)
             characterDao.touchLastMessage(character.id, now)
 
             val usedToday = if (character.dailyProactiveDate == today) character.dailyProactiveCount else 0
@@ -291,10 +305,14 @@ class ProactiveRepository @Inject constructor(
                     dailyProactiveCount = usedToday + 1,
                     dailyProactiveDate = today,
                     nextCheckAt = now + hour(nextBackoff),
-                    unreadCount = character.unreadCount + 1,
                     updatedAt = now,
                 ),
             )
+
+            // §8: okunmamis sayilari mesaj tablosundan turetilir. Once sohbet
+            // rozeti, sonra karakter toplami (toplam sohbet rozetlerinin toplamidir).
+            chatDao.setUnreadCount(chat.id, messageDao.unreadCount(chat.id))
+            characterDao.setUnreadCount(character.id, chatDao.unreadForCharacter(character.id))
 
             dueFollowup?.let { followupDao.markDone(it.id, now) }
 

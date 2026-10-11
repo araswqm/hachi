@@ -27,12 +27,14 @@ data class MemoryDocument(
 ) {
 
     fun toText(): String = buildString {
-        appendLine(START)
+        // §2.1/§8.1: iliski blogu yalnizca doluyken yazilir. Bos relation'da iki
+        // isaret satiri ust uste gelmesin (bos iskelet dosya olusmasin).
         if (relationship.isNotBlank()) {
+            appendLine(START)
             appendLine(relationship.trim())
+            appendLine(END)
+            appendLine()
         }
-        appendLine(END)
-        appendLine()
         sections.forEach { section ->
             appendLine("## ${section.title}")
             appendLine(section.body.trim())
@@ -50,6 +52,17 @@ data class MemoryDocument(
     /** Baslik + govdeyi tek bir [MemorySection] olarak sona ekler. */
     fun appending(title: String, body: String): MemoryDocument =
         copy(sections = sections + MemorySection(title, body))
+
+    /**
+     * §2.1: bozuk/silinebilir bir hafizayi bastan kurar. Kilitli kullanici
+     * notlari ([lockedNotes]) varsayilan olarak korunur; [notes] verilirse onlar
+     * kullanilir.
+     */
+    fun rebuild(
+        sections: List<MemorySection>,
+        relationship: String,
+        notes: List<String> = lockedNotes,
+    ): MemoryDocument = MemoryDocument(relationship = relationship, sections = sections, lockedNotes = notes)
 
     /** Verilen basliktaki bolumu yenisiyle degistirir; yoksa sona ekler. */
     fun withSection(title: String, body: String): MemoryDocument {

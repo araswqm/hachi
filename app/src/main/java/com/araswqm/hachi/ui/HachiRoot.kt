@@ -10,7 +10,6 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.araswqm.hachi.ui.chat.ChatScreen
 import com.araswqm.hachi.ui.chats.ChatsListScreen
-import com.araswqm.hachi.ui.debug.DebugScreen
 import com.araswqm.hachi.ui.detail.CharacterDetailScreen
 import com.araswqm.hachi.ui.editor.CharacterEditorScreen
 import com.araswqm.hachi.ui.personas.PersonaListScreen
@@ -52,7 +51,6 @@ fun HachiRoot(
             SettingsScreen(
                 onBack = { navController.popBackStack() },
                 onOpenPersonas = { navController.navigate(Routes.PERSONAS) },
-                onOpenDebug = { navController.navigate(Routes.DEBUG) },
             )
         }
 
@@ -60,19 +58,22 @@ fun HachiRoot(
             PersonaListScreen(onBack = { navController.popBackStack() })
         }
 
-        composable(Routes.DEBUG) {
-            DebugScreen(onBack = { navController.popBackStack() })
-        }
-
         composable(
             route = Routes.CHAT_PATTERN,
             arguments = listOf(
                 navArgument(Routes.ARG_CHARACTER_ID) { type = NavType.StringType },
+                navArgument(Routes.ARG_CHAT_ID) {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                },
             ),
         ) {
             ChatScreen(
                 onBack = { navController.popBackStack() },
-                onOpenDetails = { navController.navigate(Routes.detail(it)) },
+                onOpenDetails = { characterId, chatId ->
+                    navController.navigate(Routes.detail(characterId, chatId))
+                },
                 onOpenSettings = { navController.navigate(Routes.SETTINGS) },
             )
         }
@@ -101,6 +102,11 @@ fun HachiRoot(
             route = Routes.DETAIL_PATTERN,
             arguments = listOf(
                 navArgument(Routes.ARG_CHARACTER_ID) { type = NavType.StringType },
+                navArgument(Routes.ARG_CHAT_ID) {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                },
             ),
         ) {
             CharacterDetailScreen(

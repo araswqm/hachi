@@ -7,16 +7,26 @@ Kaynaklar (kullanicinin sagladigi dosyalar):
 
 Neden bu betik var
 ------------------
-Adaptive icon tuvali 108dp'dir; maskenin kirpmayacagi GARANTI edilen alan
-merkezdeki 72dp'lik (yani %66.7) "safe zone"dur. Kaynak logo tam kanamali
-(full-bleed): figur tuvalin %73'unu kapliyor -> dogrudan 432px'e kucultup
-foreground yaptigimizda figur safe zone'u asiyor ve maske tarafindan
-kirpildigi icin "zoomlanmis" gorunuyordu.
+Kaynak logo TAM KANAMALI (full-bleed): koyu (neredeyse #141414) bir kare,
+figur ortada. Eski surum kaynagi tuvalin %83'une (INNER=360) olcekleyip
+neredeyse tamamen dolduruyordu; adaptive icon maskesi altinda bu
+"zoomlanmis" gorunuyordu.
 
-Cozum: kaynagi tuvalin %83.3'une (360/432) olcekleyip ortalayip, kalan
-kenarlari kaynagin kendi kenar rengiyle dolduruyoruz. Boylece figur tam
-olarak safe zone'un icine oturur (360*0.732 = 264px = 66dp <= 72dp) ve ikon
-verilen gorsel gibi, sadece biraz daha genis koyu kenar bosluguyla gorunur.
+Cozum
+-----
+Kaynagi tuvalin yalnizca ~%62'sine olcekliyor ve ortaliyoruz. Adaptive icon
+maskesinin kirpmayacagi GARANTI edilen alan merkezdeki 66dp (%61) safe
+zone'dur; %62'ye sigdirilan tam logo kendi koyu kenarlariyla birlikte bu
+alanin icine oturur ve hicbir zaman kirpilmaz. Kenar boslugu arka plan rengi
+(#141414 = @color/ic_launcher_background) ile doldurulur; boylece logonun koyu
+kare govdesi zeminle kaynasir ve yalnizca figur net gorunur.
+
+Uretilenler (her yogunluk: mdpi/hdpi/xhdpi/xxhdpi/xxxhdpi icin):
+  drawable-<d>/ic_launcher_foreground.png   (108dp: 108/162/216/324/432px)
+  drawable-<d>/ic_launcher_monochrome.png   (108dp, beyaz siluet)
+  drawable-<d>/ic_notification.png          (24dp: 24/36/48/72/96px, beyaz)
+  mipmap-<d>/ic_launcher.png                (48dp: 48/72/96/144/192px)
+  mipmap-<d>/ic_launcher_round.png          (48dp)
 
 Calistirma:  python3 tools/make_icons.py
 (Zaten uretilmis PNG'ler repoda; bu betik yalnizca yeniden uretmek icin.)
@@ -28,66 +38,31 @@ import sys
 from PIL import Image
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-OUT = os.path.join(ROOT, "app", "src", "main", "res", "drawable-xxxhdpi")
+RES = os.path.join(ROOT, "app", "src", "main", "res")
 
 LAUNCHER_SRC = "/storage/emulated/0/hachilogofinal1.png"
 NOTIF_SRC = "/storage/emulated/0/hachinotif.png"
 
-# Adaptive icon tuvali 432px (xxxhdpi: 108dp * 4).
-CANVAS = 432
-# Safe zone = 72dp -> 288px. Figur 360px tuvalin %73'u = 264px < 288px.
-INNER = 360
-# Bildirim kucuk ikonu 96px (24dp * 4); icerik ~%72'ye sigar.
-NOTIF_CANVAS = 96
-NOTIF_INNER = 69
+# (klasor eki, olcek). mdpi=1x ... xxxhdpi=4x.
+DENSITIES = [
+    ("mdpi", 1.0),
+    ("hdpi", 1.5),
+    ("xhdpi", 2.0),
+    ("xxhdpi", 3.0),
+    ("xxxhdpi", 4.0),
+]
 
+FG_DP = 108          # adaptive icon tuvali
+NOTIF_DP = 24        # kucuk bildirim ikonu
+MIPMAP_DP = 48       # legacy launcher ikonu
 
-def border_color(img: Image.Image, ring_frac: float = 0.02) -> tuple[int, int, int]:
-    """Kenar halkasindaki opak piksellerin ortalama rengi (vinyet devami icin)."""
-    w, h = img.size
-    pad = max(1, int(min(w, h) * ring_frac))
-    px = img.load()
-    s = [0, 0, 0]
-    n = 0
-    step = max(1, min(w, h) // 256)
-    for y in range(0, h, step):
-        for x in range(0, w, step):
-            if x < pad or x >= w - pad or y < pad or y >= h - pad:
-                r, g, b, a = px[x, y]
-                if a > 200:
-                    s[0] += r
-                    s[1] += g
-                    s[2] += b
-                    n += 1
-    if n == 0:
-        return (20, 20, 20)
-    return (s[0] // n, s[1] // n, s[2] // n)
+# Logonun tuval icine orani. 66dp safe zone = %61; %62 ile tam sigar.
+FG_FRAC = 0.62
+# Bildirim silueti tuvalin ~%72'sine sigar.
+NOTIF_FRAC = 0.72
 
-
-def make_launcher() -> None:
-    src = Image.open(LAUNCHER_SRC).convert("RGBA")
-    bg = border_color(src)
-    print(f"launcher kenar rengi: #{bg[0]:02X}{bg[1]:02X}{bg[2]:02X}")
-
-    inner = src.resize((INNER, INNER), Image.LANCZOS)
-
-    canvas = Image.new("RGBA", (CANVAS, CANVAS), (*bg, 255))
-    off = (CANVAS - INNER) // 2
-    canvas.alpha_composite(inner, (off, off))
-
-    canvas.save(os.path.join(OUT, "ic_launcher_foreground.png"), optimize=True)
-    print("yazildi: ic_launcher_foreground.png")
-
-    # Renkli modda da ayni kadraj: tek renkli katman sistem tarafindan boyanir,
-    # bu yuzden arka plan saydam, yalnizca figur kaliyor.
-    mono = Image.open(os.path.join(OUT, "ic_launcher_monochrome.png")).convert("RGBA")
-    mono = crop_opaque(mono)
-    mono = fit_square(mono, INNER)
-    mono_canvas = Image.new("RGBA", (CANVAS, CANVAS), (0, 0, 0, 0))
-    m_off = (CANVAS - mono.width) // 2
-    mono_canvas.alpha_composite(mono, (m_off, (CANVAS - mono.height) // 2))
-    mono_canvas.save(os.path.join(OUT, "ic_launcher_monochrome.png"), optimize=True)
-    print("yazildi: ic_launcher_monochrome.png")
+# @color/ic_launcher_background ile ayni renk (#141414).
+BG = (20, 20, 20)
 
 
 def crop_opaque(img: Image.Image, thresh: int = 32) -> Image.Image:
@@ -103,30 +78,89 @@ def fit_square(img: Image.Image, side: int) -> Image.Image:
     return img.resize((max(1, round(w * scale)), max(1, round(h * scale))), Image.LANCZOS)
 
 
-def make_notification() -> None:
-    src = Image.open(NOTIF_SRC).convert("RGBA")
-    src = crop_opaque(src)
-    fig = fit_square(src, NOTIF_INNER)
+def make_silhouette(src: Image.Image, side: int = 432) -> Image.Image:
+    """Kaynaktan beyaz siluet uretir: parlak VE opak pikseller beyaz olur.
 
-    # Bildirim ikonu her zaman BEYAZ olmali (sistem renklendirir).
-    px = fig.load()
-    for y in range(fig.height):
-        for x in range(fig.width):
-            r, g, b, a = px[x, y]
-            px[x, y] = (255, 255, 255, a)
+    Figur kaynakta aydinlik (beyaz/aydinlatilmis), zemin koyudur; bu yuzden
+    parlaklik esigi ile figur ayrilir. Saydam koseler (a=0) disarida kalir.
+    """
+    small = src.resize((side, side), Image.LANCZOS)
+    out = Image.new("RGBA", (side, side), (0, 0, 0, 0))
+    sp = small.load()
+    op = out.load()
+    for y in range(side):
+        for x in range(side):
+            r, g, b, a = sp[x, y]
+            if a > 40 and (r * 299 + g * 587 + b * 114) // 1000 > 128:
+                op[x, y] = (255, 255, 255, 255)
+    return crop_opaque(out)
 
-    canvas = Image.new("RGBA", (NOTIF_CANVAS, NOTIF_CANVAS), (0, 0, 0, 0))
-    canvas.alpha_composite(fig, ((NOTIF_CANVAS - fig.width) // 2, (NOTIF_CANVAS - fig.height) // 2))
-    canvas.save(os.path.join(OUT, "ic_notification.png"), optimize=True)
-    print("yazildi: ic_notification.png")
+
+def whiten(img: Image.Image) -> Image.Image:
+    """RGB'yi beyaza cevirir, alfa korunur (sistem bildirim ikonunu boyar)."""
+    r, g, b, a = img.split()
+    white = r.point(lambda _: 255)
+    return Image.merge("RGBA", (white, white, white, a))
+
+
+def save(img: Image.Image, *parts: str) -> None:
+    path = os.path.join(RES, *parts)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    img.save(path, optimize=True)
+    print("yazildi:", os.path.relpath(path, ROOT))
+
+
+def make_launcher(src: Image.Image, silhouette: Image.Image) -> None:
+    for name, scale in DENSITIES:
+        px = round(FG_DP * scale)
+        inner = round(px * FG_FRAC)
+
+        # Foreground: tam logo %62'ye sigar, #141414 uzerine ortalanir.
+        fig = src.resize((inner, inner), Image.LANCZOS)
+        canvas = Image.new("RGBA", (px, px), (*BG, 255))
+        off = (px - inner) // 2
+        canvas.alpha_composite(fig, (off, off))
+        save(canvas, f"drawable-{name}", "ic_launcher_foreground.png")
+
+        # Monochrome: ayni kadraj, yalnizca beyaz siluet (arka plan saydam).
+        mono = fit_square(silhouette, inner)
+        m_canvas = Image.new("RGBA", (px, px), (0, 0, 0, 0))
+        m_canvas.alpha_composite(mono, ((px - mono.width) // 2, (px - mono.height) // 2))
+        save(m_canvas, f"drawable-{name}", "ic_launcher_monochrome.png")
+
+        # Legacy mipmap launcher ikonlari (48dp).
+        mpx = round(MIPMAP_DP * scale)
+        minner = round(mpx * FG_FRAC)
+        mfig = src.resize((minner, minner), Image.LANCZOS)
+        mimg = Image.new("RGBA", (mpx, mpx), (*BG, 255))
+        moff = (mpx - minner) // 2
+        mimg.alpha_composite(mfig, (moff, moff))
+        save(mimg, f"mipmap-{name}", "ic_launcher.png")
+        save(mimg, f"mipmap-{name}", "ic_launcher_round.png")
+
+
+def make_notification(src: Image.Image) -> None:
+    glyph = crop_opaque(src)
+    for name, scale in DENSITIES:
+        px = round(NOTIF_DP * scale)
+        inner = round(px * NOTIF_FRAC)
+        fig = whiten(fit_square(glyph, inner))
+        canvas = Image.new("RGBA", (px, px), (0, 0, 0, 0))
+        canvas.alpha_composite(fig, ((px - fig.width) // 2, (px - fig.height) // 2))
+        save(canvas, f"drawable-{name}", "ic_notification.png")
 
 
 def main() -> int:
     if not os.path.isfile(LAUNCHER_SRC) or not os.path.isfile(NOTIF_SRC):
         print("Kaynak gorseller bulunamadi:", LAUNCHER_SRC, NOTIF_SRC, file=sys.stderr)
         return 1
-    make_launcher()
-    make_notification()
+
+    launcher_src = Image.open(LAUNCHER_SRC).convert("RGBA")
+    notif_src = Image.open(NOTIF_SRC).convert("RGBA")
+
+    silhouette = make_silhouette(launcher_src)
+    make_launcher(launcher_src, silhouette)
+    make_notification(notif_src)
     return 0
 
 

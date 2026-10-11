@@ -5,13 +5,16 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.araswqm.hachi.R
+import com.araswqm.hachi.core.AppFiles
 import com.araswqm.hachi.core.ApplicationScope
 import com.araswqm.hachi.data.ai.MissingApiKeyException
 import com.araswqm.hachi.data.ai.Placeholders
 import com.araswqm.hachi.data.ai.provider.ProviderId
 import com.araswqm.hachi.data.chat.ChatRepository
 import com.araswqm.hachi.data.chat.GenEvent
+import com.araswqm.hachi.data.db.dao.ChatDao
 import com.araswqm.hachi.data.db.entity.CharacterEntity
+import com.araswqm.hachi.data.db.entity.ChatEntity
 import com.araswqm.hachi.data.db.entity.MessageEntity
 import com.araswqm.hachi.data.db.entity.PersonaEntity
 import com.araswqm.hachi.data.memory.MemorySummarizer
@@ -27,8 +30,11 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
@@ -70,6 +76,10 @@ data class ChatUiState(
     val error: ChatError? = null,
     val input: String = "",
     val assistantBusy: Boolean = false,
+    /** Karakterin sohbetleri (sohbet degistirme sayfasi icin). */
+    val chats: List<ChatEntity> = emptyList(),
+    /** Acik olan sohbet; henuz cozulmemisse `null`. */
+    val currentChatId: String? = null,
 ) {
     /** Son mesaj asistana aitse (ve uretim yoksa) "yeniden uret" sunulur. */
     val canRegenerate: Boolean get() = !isGenerating && messages.lastOrNull()?.fromUser == false
@@ -81,8 +91,13 @@ data class ChatUiState(
 /**
  * Sohbet ekrani.
  *
+ * §8: bir karakterin birden fazla sohbeti olabilir; mesaj ve hafiza sohbet
+ * bazlidir. Aktif sohbet [chatId] akisinda tutulur ve tum veri akislari ona
+ * gore yeniden kurulur. Gelen `chatId` parametresi (varsa) acilista o sohbeti
+ * secer; yoksa karakterin son sohbeti, o da yoksa yeni bir sohbet acilir.
+ *
  * Uretim [ChatRepository.generateReply] akisindan gelir; metin once
- * [streamingText]'te birikir, veritabanina yalnizca akis bittiğinde/durduğunda
+ * [streamingText]'te birikir, veritabanina yalnizca akis bittiğinde/durdugunda
  * yazilir. Bu yuzden listede "hayalet" bos balon olusmaz.
  *
  * Ozetleme [ApplicationScope]'ta calisir: kullanici ekrandan ciksa bile
@@ -93,6 +108,7 @@ class ChatViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val characters: CharacterRepository,
     private val chat: ChatRepository,
+    private val chatDao: ChatDao,
     private val personas: PersonaRepository,
     private val summarizer: MemorySummarizer,
     @ApplicationScope private val appScope: CoroutineScope,
@@ -106,27 +122,50 @@ class ChatViewModel @Inject constructor(
     private val errorState = MutableStateFlow<ChatError?>(null)
     private var errorSeq = 0L
 
+    /** Aktif sohbet; cozulene kadar `null`. */
+    private val currentChatIdState = MutableStateFlow<String?>(null)
+
+    /** Disari acilan sohbet akisi (arayuz basligi/secimi bunu izler). */
+    val chatId: StateFlow<String?> = currentChatIdState.asStateFlow()
+
     val character: StateFlow<CharacterEntity?> = characters
         .observeById(characterId)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
+    /** Karakterin sohbetleri; en son konusulan ustte. */
+    private val chatsFlow: Flow<List<ChatEntity>> =
+        chatDao.observeForCharacter(characterId)
+
     /**
-     * Bu sohbette gecerli persona (§8.2). Karaktere atanmis `personaId` varsa o,
-     * yoksa genel varsayilan persona. Kullanici balonlarinin avatari ve mesaj
-     * metnindeki `{{user}}` buradan cozulur.
+     * Aktif sohbette gecerli persona (§3/§8). Once sohbetin `personaId`'si,
+     * sonra karakterin `personaId`'si, yoksa genel varsayilan persona. Kullanici
+     * balonlarinin avatari ve mesaj metnindeki `{{user}}` buradan cozulur.
      */
-    private val personaFlow: Flow<PersonaEntity?> = characters
-        .observeById(characterId)
-        .flatMapLatest { character ->
-            val assigned = character?.personaId
-            if (assigned != null) personas.observeById(assigned) else personas.observeSelected()
+    private val personaFlow: Flow<PersonaEntity?> = combine(
+        characters.observeById(characterId),
+        currentChatIdState,
+    ) { character, activeChatId ->
+        character to activeChatId
+    }.flatMapLatest { (character, activeChatId) ->
+        val chatPersonaId: Flow<String?> = if (activeChatId != null) {
+            chatDao.observeById(activeChatId).map { it?.personaId }
+        } else {
+            flowOf(null)
         }
+        combine(chatPersonaId, flowOf(character?.personaId)) { chatPid, characterPid ->
+            chatPid ?: characterPid
+        }
+    }.flatMapLatest { personaId ->
+        if (personaId != null) personas.observeById(personaId) else personas.observeSelected()
+    }
 
     val persona: StateFlow<PersonaEntity?> = personaFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     private val messages = combine(
-        chat.observeMessages(characterId),
+        currentChatIdState.flatMapLatest { activeChatId ->
+            if (activeChatId == null) flowOf(emptyList()) else chat.observeMessages(activeChatId)
+        },
         characters.observeById(characterId),
         personaFlow,
     ) { rows, character, persona ->
@@ -143,15 +182,22 @@ class ChatViewModel @Inject constructor(
         Triple(g, s, e)
     }
 
+    /** Mesaj listesi + sohbet listesi + aktif sohbet kimligi tek demette. */
+    private val listState = combine(messages, chatsFlow, currentChatIdState) { list, chats, activeChatId ->
+        Triple(list, chats, activeChatId)
+    }
+
     val uiState: StateFlow<ChatUiState> =
-        combine(messages, generationState, draft, assistantBusy) { list, gen, input, busy ->
+        combine(listState, generationState, draft, assistantBusy) { list, gen, input, busy ->
             ChatUiState(
-                messages = list,
+                messages = list.first,
                 isGenerating = gen.first,
                 streamingText = gen.second,
                 error = gen.third,
                 input = input,
                 assistantBusy = busy,
+                chats = list.second,
+                currentChatId = list.third,
             )
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ChatUiState())
 
@@ -160,9 +206,64 @@ class ChatViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             if (characterId.isBlank()) return@launch
-            characters.getById(characterId)?.let { chat.ensureGreeting(it) }
-            chat.markRead(characterId)
+            val requested = savedStateHandle.get<String>(Routes.ARG_CHAT_ID)?.takeIf { it.isNotBlank() }
+            val target = requested ?: chatDao.getLatestForCharacter(characterId)?.id
+            if (target != null) {
+                activateChat(target)
+            } else {
+                createChatInternal()
+            }
         }
+    }
+
+    // ------------------------------------------------------------------
+    // Sohbet secimi
+    // ------------------------------------------------------------------
+
+    /** Baska bir sohbete gecer; devam eden uretimi iptal eder. */
+    fun switchChat(id: String) {
+        if (id == currentChatIdState.value) return
+        clearInFlight()
+        viewModelScope.launch { activateChat(id) }
+    }
+
+    /** Bu karakter icin yeni bir sohbet acar ve ona gecer. */
+    fun createChat() {
+        if (characterId.isBlank()) return
+        clearInFlight()
+        viewModelScope.launch { createChatInternal() }
+    }
+
+    /** Aktif sohbeti yukler: karsilama mesajini yazar ve okundu isaretler. */
+    private suspend fun activateChat(id: String) {
+        val entity = chatDao.getById(id) ?: return
+        currentChatIdState.value = entity.id
+        val character = characters.getById(characterId) ?: return
+        chat.ensureGreeting(entity, character)
+        chat.markRead(entity.id, characterId)
+    }
+
+    /** Yeni sohbet satiri olusturur, karsilama mesajini yazar ve ona gecer. */
+    private suspend fun createChatInternal() {
+        val character = characters.getById(characterId) ?: return
+        val now = System.currentTimeMillis()
+        val entity = ChatEntity(
+            id = AppFiles.newId(),
+            characterId = characterId,
+            createdAt = now,
+            updatedAt = now,
+        )
+        chatDao.insert(entity)
+        chat.ensureGreeting(entity, character)
+        currentChatIdState.value = entity.id
+    }
+
+    /** Uretim/hata durumunu sifirlar (sohbet degisiminde cagrilir). */
+    private fun clearInFlight() {
+        generationJob?.cancel()
+        generating.value = false
+        streaming.value = ""
+        errorState.value = null
     }
 
     // ------------------------------------------------------------------
@@ -175,11 +276,12 @@ class ChatViewModel @Inject constructor(
     }
 
     fun send() {
+        val activeChatId = currentChatIdState.value ?: return
         val trimmed = draft.value.trim()
         if (trimmed.isEmpty() || generating.value) return
         draft.value = ""
         viewModelScope.launch {
-            chat.appendUserMessage(characterId, trimmed)
+            chat.appendUserMessage(activeChatId, characterId, trimmed)
             launchGeneration(regenerate = false)
         }
     }
@@ -190,15 +292,17 @@ class ChatViewModel @Inject constructor(
 
     /** Eldeki taslagi LLM ile zenginlestirir; sonuc giris kutusuna yazilir. */
     fun enhanceDraft() {
+        val activeChatId = currentChatIdState.value ?: return
         val current = draft.value.trim()
         if (current.isEmpty() || assistantBusy.value || generating.value) return
-        runAssistant { chat.enhanceDraft(characterId, current) }
+        runAssistant { chat.enhanceDraft(activeChatId, characterId, current) }
     }
 
     /** Karakterin son mesajina uygun bir kullanici yaniti onerir. */
     fun writeForMe() {
+        val activeChatId = currentChatIdState.value ?: return
         if (assistantBusy.value || generating.value) return
-        runAssistant { chat.suggestReply(characterId) }
+        runAssistant { chat.suggestReply(activeChatId, characterId) }
     }
 
     /** Taslak cagrisini calistirir; mesguliyet bayragini ve hatayi yonetir. */
@@ -228,7 +332,7 @@ class ChatViewModel @Inject constructor(
     }
 
     fun regenerate() {
-        if (generating.value || characterId.isBlank()) return
+        if (generating.value || currentChatIdState.value == null) return
         launchGeneration(regenerate = true)
     }
 
@@ -259,13 +363,14 @@ class ChatViewModel @Inject constructor(
     // ------------------------------------------------------------------
 
     private fun launchGeneration(regenerate: Boolean) {
+        val activeChatId = currentChatIdState.value ?: return
         generationJob?.cancel()
         generationJob = viewModelScope.launch {
             generating.value = true
             streaming.value = ""
             errorState.value = null
             try {
-                chat.generateReply(characterId, regenerate).collect { event ->
+                chat.generateReply(activeChatId, characterId, regenerate).collect { event ->
                     when (event) {
                         GenEvent.Started -> Unit
 
@@ -330,11 +435,12 @@ class ChatViewModel @Inject constructor(
     }
 
     private fun maybeSummarize() {
+        val activeChatId = currentChatIdState.value ?: return
         if (characterId.isBlank()) return
         appScope.launch {
             runCatching {
-                if (summarizer.shouldSummarize(characterId)) {
-                    summarizer.summarize(characterId, force = false)
+                if (summarizer.shouldSummarize(activeChatId)) {
+                    summarizer.summarize(activeChatId, characterId, force = false)
                 }
             }
         }

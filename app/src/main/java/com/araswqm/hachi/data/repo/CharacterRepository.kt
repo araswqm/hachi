@@ -8,6 +8,7 @@ import com.araswqm.hachi.data.card.CardParser
 import com.araswqm.hachi.data.card.CardWriter
 import com.araswqm.hachi.data.card.CharacterCard
 import com.araswqm.hachi.data.db.dao.CharacterDao
+import com.araswqm.hachi.data.db.dao.ChatDao
 import com.araswqm.hachi.data.db.entity.CharacterEntity
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
@@ -31,13 +32,15 @@ sealed interface ImportResult {
  * Dosya yollari [AppFiles] uzerinden **goreli** tutulur; veritabaninda
  * `avatars/<id>.png` gibi durur, gercek konum [filesDir]'e gore cozulur.
  *
- * Karakter silindiginde Room `CASCADE` mesaj/followup/kayit satirlarini
- * temizler; geriye kalan dosyalar (avatar + `memory/<id>.md`) burada silinir.
+ * Karakter silindiginde Room `CASCADE` sohbet/mesaj/followup/kayit satirlarini
+ * temizler; geriye kalan dosyalar (avatar + her sohbetin `memory/<chatId>.md`
+ * dosyasi) burada silinir.
  */
 @Singleton
 class CharacterRepository @Inject constructor(
     @ApplicationContext private val context: Context,
     private val characterDao: CharacterDao,
+    private val chatDao: ChatDao,
     private val cardParser: CardParser,
     private val cardWriter: CardWriter,
     @IoDispatcher private val io: CoroutineDispatcher,
@@ -212,12 +215,17 @@ class CharacterRepository @Inject constructor(
 
     /**
      * Karakteri ve ona bagli **tum** veriyi siler: DB satirlari (CASCADE ile
-     * mesaj/followup/kayit) + avatar dosyasi + `memory/<id>.md`.
+     * sohbet/mesaj/followup/kayit) + avatar dosyasi + karakterin her sohbetinin
+     * hafiza dosyasi (`memory/<chatId>.md`, §8).
      */
     suspend fun deleteCharacter(characterId: String) = withContext(io) {
+        // Hafiza dosyalari sohbet bazlidir; silmeden once sohbet kimliklerini topla.
+        val chats = chatDao.getForCharacter(characterId)
         characterDao.deleteById(characterId)
         avatarFile(characterId).delete()
-        File(filesDir, AppFiles.memoryRelPath(characterId)).delete()
+        chats.forEach { chat ->
+            File(filesDir, AppFiles.memoryRelPath(chat.id)).delete()
+        }
         Unit
     }
 }

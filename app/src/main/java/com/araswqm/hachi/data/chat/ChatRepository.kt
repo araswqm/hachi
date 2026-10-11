@@ -13,8 +13,10 @@ import com.araswqm.hachi.data.ai.provider.LlmRouter
 import com.araswqm.hachi.data.ai.provider.ModelRole
 import com.araswqm.hachi.data.ai.provider.ProviderId
 import com.araswqm.hachi.data.db.dao.CharacterDao
+import com.araswqm.hachi.data.db.dao.ChatDao
 import com.araswqm.hachi.data.db.dao.MessageDao
 import com.araswqm.hachi.data.db.entity.CharacterEntity
+import com.araswqm.hachi.data.db.entity.ChatEntity
 import com.araswqm.hachi.data.db.entity.MessageEntity
 import com.araswqm.hachi.data.memory.MemorySummarizer
 import com.araswqm.hachi.data.repo.MemoryRepository
@@ -60,6 +62,11 @@ sealed interface GenEvent {
 /**
  * Sohbet verisi + uretim orkestrasyonu.
  *
+ * §8: mesajlar ve hafiza artik sohbet ([ChatEntity]) bazlidir; bu yuzden
+ * kullanici eylemleri [chatId] ile calisir. [characterId] yalnizca karakter
+ * kartini okumak ve karakter bazli toplamlari (son mesaj zamani, okunmamis
+ * sayisi) guncellemek icin gerekir.
+ *
  * **Tasarim notu — neden onceden bos mesaj satiri acilmiyor:** Onceki hatali
  * yaklasimda uretim baslamadan veritabanina bos bir asistan mesaji ekleniyordu;
  * bu, gecikme sirasinda bos balon yanip sonmesine yol aciyordu. Burada metin
@@ -70,6 +77,7 @@ sealed interface GenEvent {
 class ChatRepository @Inject constructor(
     private val messageDao: MessageDao,
     private val characterDao: CharacterDao,
+    private val chatDao: ChatDao,
     private val personaRepository: PersonaRepository,
     private val memoryRepository: MemoryRepository,
     private val router: LlmRouter,
@@ -80,62 +88,70 @@ class ChatRepository @Inject constructor(
     @ApplicationScope private val appScope: CoroutineScope,
 ) {
 
-    fun observeMessages(characterId: String): Flow<List<MessageEntity>> =
-        messageDao.observeForCharacter(characterId)
+    fun observeMessages(chatId: String): Flow<List<MessageEntity>> =
+        messageDao.observeForChat(chatId)
 
     // ------------------------------------------------------------------
     // Kullanici eylemleri
     // ------------------------------------------------------------------
 
-    /** Kullanici mesajini ekler ve karakter listesindeki son mesaj zamanini gunceller. */
-    suspend fun appendUserMessage(characterId: String, text: String): Long = withContext(io) {
-        val now = System.currentTimeMillis()
-        val character = characterDao.getById(characterId)
-        val body = Placeholders.resolve(
-            text = text.trim(),
-            characterName = character?.name.orEmpty(),
-            userName = personaRepository.resolve(character)?.name,
-        )
-        val id = messageDao.insert(
-            MessageEntity(
-                characterId = characterId,
-                role = MessageEntity.ROLE_USER,
-                content = body,
-                variantsJson = encodeVariants(listOf(body)),
-                createdAt = now,
-            ),
-        )
-        characterDao.touchLastMessage(characterId, now)
-        // Kullanici yanit verdi: kendiliğinden mesaj geri-cekilmesini sifirla.
-        character?.let { c ->
-            if (c.lastProactiveUnanswered || c.proactiveBackoffHours > 0.0) {
-                characterDao.upsert(
-                    c.copy(lastProactiveUnanswered = false, proactiveBackoffHours = 0.0),
-                )
+    /**
+     * Kullanici mesajini ekler; hem karakterin hem sohbetin son mesaj zamanini
+     * gunceller.
+     */
+    suspend fun appendUserMessage(chatId: String, characterId: String, text: String): Long =
+        withContext(io) {
+            val now = System.currentTimeMillis()
+            val character = characterDao.getById(characterId)
+            val body = Placeholders.resolve(
+                text = text.trim(),
+                characterName = character?.name.orEmpty(),
+                userName = personaRepository.resolve(character, chatDao.getById(chatId))?.name,
+            )
+            val id = messageDao.insert(
+                MessageEntity(
+                    characterId = characterId,
+                    chatId = chatId,
+                    role = MessageEntity.ROLE_USER,
+                    content = body,
+                    variantsJson = encodeVariants(listOf(body)),
+                    createdAt = now,
+                ),
+            )
+            chatDao.touchLastMessage(chatId, now)
+            characterDao.touchLastMessage(characterId, now)
+            // Kullanici yanit verdi: kendiliğinden mesaj geri-cekilmesini sifirla.
+            character?.let { c ->
+                if (c.lastProactiveUnanswered || c.proactiveBackoffHours > 0.0) {
+                    characterDao.upsert(
+                        c.copy(lastProactiveUnanswered = false, proactiveBackoffHours = 0.0),
+                    )
+                }
             }
+            id
         }
-        id
-    }
 
     /** Ilk mesaj: sohbet bossa karakterin `first_mes` metnini yerlestirir. */
-    suspend fun ensureGreeting(character: CharacterEntity) = withContext(io) {
-        if (messageDao.count(character.id) > 0) return@withContext
+    suspend fun ensureGreeting(chat: ChatEntity, character: CharacterEntity) = withContext(io) {
+        if (messageDao.count(chat.id) > 0) return@withContext
         if (character.firstMessage.isBlank()) return@withContext
         val now = System.currentTimeMillis()
         val body = Placeholders.resolve(
             text = character.firstMessage.trim(),
             characterName = character.name,
-            userName = personaRepository.resolve(character)?.name,
+            userName = personaRepository.resolve(character, chat)?.name,
         )
         messageDao.insert(
             MessageEntity(
                 characterId = character.id,
+                chatId = chat.id,
                 role = MessageEntity.ROLE_ASSISTANT,
                 content = body,
                 variantsJson = encodeVariants(listOf(body)),
                 createdAt = now,
             ),
         )
+        chatDao.touchLastMessage(chat.id, now)
         characterDao.touchLastMessage(character.id, now)
     }
 
@@ -157,12 +173,15 @@ class ChatRepository @Inject constructor(
     suspend fun deleteMessage(messageId: Long) = withContext(io) {
         val message = messageDao.getById(messageId) ?: return@withContext
         messageDao.deleteById(messageId)
-        val latest = messageDao.getLatest(message.characterId)
-        characterDao.touchLastMessage(message.characterId, latest?.createdAt ?: 0L)
+        // §8: sohbet ve karakter zaman damgalari birlikte guncellenir.
+        val latestAt = messageDao.getLatest(message.chatId)?.createdAt ?: 0L
+        chatDao.touchLastMessage(message.chatId, latestAt)
+        characterDao.touchLastMessage(message.characterId, latestAt)
         // §2.1: mesaj ozetlenmis bolgeye aitse hafiza ondan arindirilir. Arka
         // planda calisir; kullanici silme islemini beklemez.
+        val chatId = message.chatId
         val characterId = message.characterId
-        appScope.launch { summarizer.rebuildFrom(characterId, messageId) }
+        appScope.launch { summarizer.rebuildFrom(chatId, characterId, messageId) }
     }
 
     /** Yeniden uretme varyantlari arasinda gecis. */
@@ -175,15 +194,18 @@ class ChatRepository @Inject constructor(
             message.copy(content = variants[safe], variantIndex = safe),
         )
         // §2.1: secilen varyant ozetlenmis bolgeye aitse hafiza yeniden kurulur.
+        val chatId = message.chatId
         val characterId = message.characterId
         if (message.role == MessageEntity.ROLE_ASSISTANT) {
-            appScope.launch { summarizer.rebuildFrom(characterId, messageId) }
+            appScope.launch { summarizer.rebuildFrom(chatId, characterId, messageId) }
         }
     }
 
-    suspend fun markRead(characterId: String) = withContext(io) {
-        messageDao.markAllRead(characterId)
-        characterDao.setUnreadCount(characterId, 0)
+    suspend fun markRead(chatId: String, characterId: String) = withContext(io) {
+        messageDao.markAllRead(chatId)
+        chatDao.setUnreadCount(chatId, 0)
+        // Karakter rozeti, karakterin butun sohbetlerindeki toplam okunmamistir.
+        characterDao.setUnreadCount(characterId, chatDao.unreadForCharacter(characterId))
     }
 
     // ------------------------------------------------------------------
@@ -191,45 +213,50 @@ class ChatRepository @Inject constructor(
     // ------------------------------------------------------------------
 
     /**
-     * Kullanicinin yazdigi taslagi zenginlestirir. Taslak KULLANICININ agzindan
-     * yazilmis bir mesaj oldugu icin karakter karti baglami verilir ama cikti
-     * yine kullanici diliyle uretilir. Hata/bos yanit durumunda `null` doner;
-     * cagiran taraf hatayi kullaniciya bildirir.
+     * Kullanicinin yazdigi taslagi zenginlestirir. Tam baglam (karakter karti +
+     * persona + hafiza + son mesajlar) kurulur; taslak KULLANICININ agzindan
+     * yazilmis bir mesaj oldugu icin talimat son bir kullanici mesaji olarak
+     * eklenir ve cikti yine kullanici diliyle uretilir. Hata/bos yanit
+     * durumunda `null` doner; cagiran taraf hatayi kullaniciya bildirir.
      */
-    suspend fun enhanceDraft(characterId: String, draft: String): String? = withContext(io) {
-        val character = characterDao.getById(characterId) ?: return@withContext null
-        val persona = personaRepository.resolve(character)
-            ?: personaRepository.getOrCreateSelected()
-        val system = buildString {
-            append(promptBuilder.characterBlock(character, persona.name))
-            append("\n\n# GOREV\n")
-            append(ENHANCE_INSTRUCTION)
+    suspend fun enhanceDraft(chatId: String, characterId: String, draft: String): String? =
+        withContext(io) {
+            val character = characterDao.getById(characterId) ?: return@withContext null
+            val persona = personaRepository.resolve(character, chatDao.getById(chatId))
+                ?: personaRepository.getOrCreateSelected()
+            val recent = messageDao
+                .getLast(chatId, Tuning.DRAFT_CONTEXT_MESSAGES)
+                .reversed()
+            val memory = memoryRepository.read(chatId)
+            val prompt = promptBuilder.build(
+                character = character,
+                persona = persona,
+                memory = memory,
+                history = recent,
+                nowMillis = System.currentTimeMillis(),
+            )
+            val result = router.complete(
+                role = ModelRole.CHAT,
+                messages = prompt + AiMessage.user(ENHANCE_INSTRUCTION + "\n\n---\n" + draft.trim()),
+                temperature = Tuning.DRAFT_TEMPERATURE,
+                maxTokens = Tuning.DRAFT_MAX_TOKENS,
+            )
+            result.text.trim().ifBlank { null }
         }
-        val result = router.complete(
-            role = ModelRole.CHAT,
-            messages = listOf(
-                AiMessage.system(system),
-                AiMessage.user(draft.trim()),
-            ),
-            temperature = Tuning.DRAFT_TEMPERATURE,
-            maxTokens = Tuning.DRAFT_MAX_TOKENS,
-        )
-        result.text.trim().ifBlank { null }
-    }
 
     /**
      * Karakterin son mesajina uygun, KULLANICININ bir sonraki mesajini onerir.
      * Tam prompt (karakter karti + hafiza + son mesajlar) kurulur ve sonuna
      * "kullanici olarak yaz" talimati eklenir. Hata/bos yanitta `null`.
      */
-    suspend fun suggestReply(characterId: String): String? = withContext(io) {
+    suspend fun suggestReply(chatId: String, characterId: String): String? = withContext(io) {
         val character = characterDao.getById(characterId) ?: return@withContext null
-        val persona = personaRepository.resolve(character)
+        val persona = personaRepository.resolve(character, chatDao.getById(chatId))
             ?: personaRepository.getOrCreateSelected()
         val recent = messageDao
-            .getLast(characterId, Tuning.DRAFT_CONTEXT_MESSAGES)
+            .getLast(chatId, Tuning.DRAFT_CONTEXT_MESSAGES)
             .reversed()
-        val memory = memoryRepository.read(characterId)
+        val memory = memoryRepository.read(chatId)
         val prompt = promptBuilder.build(
             character = character,
             persona = persona,
@@ -257,28 +284,30 @@ class ChatRepository @Inject constructor(
      * Akis iptal edilirse kismi metin `NonCancellable` blokta kaydedilir ve
      * iptal yeniden firlatilir (Flow kurali: iptal sessizce yutulmaz).
      */
-    fun generateReply(characterId: String, regenerate: Boolean): Flow<GenEvent> = flow {
+    fun generateReply(chatId: String, characterId: String, regenerate: Boolean): Flow<GenEvent> = flow {
         val character = withContext(io) { characterDao.getById(characterId) }
         if (character == null) {
             emit(GenEvent.Failed("Karakter bulunamadı.", needsApiKey = false))
             return@flow
         }
+        val chat = withContext(io) { chatDao.getById(chatId) }
 
         val target = withContext(io) {
-            val last = messageDao.getLatest(characterId)
+            val last = messageDao.getLatest(chatId)
             if (regenerate && last?.role == MessageEntity.ROLE_ASSISTANT) last else null
         }
 
         val prompt = withContext(io) {
             val recent = messageDao
-                .getLast(characterId, Tuning.RECENT_MESSAGES_IN_PROMPT + 1)
+                .getLast(chatId, Tuning.RECENT_MESSAGES_IN_PROMPT + 1)
                 .reversed()
                 .filter { it.id != target?.id }
-            // Sohbete atanmis persona; yoksa varsayilan. Hicbiri yoksa bos bir
-            // varsayilan olusturulur ki prompt kurucu kullanici adini alabilsin.
-            val persona = personaRepository.resolve(character)
+            // Sohbete atanmis persona; yoksa karakterin personasi, o da yoksa
+            // varsayilan. Hicbiri yoksa bos bir varsayilan olusturulur ki prompt
+            // kurucu kullanici adini alabilsin.
+            val persona = personaRepository.resolve(character, chat)
                 ?: personaRepository.getOrCreateSelected()
-            val memory = memoryRepository.read(characterId)
+            val memory = memoryRepository.read(chatId)
             promptBuilder.build(
                 character = character,
                 persona = persona,
@@ -324,7 +353,7 @@ class ChatRepository @Inject constructor(
             drainSwitches()
         } catch (e: CancellationException) {
             withContext(NonCancellable) {
-                persistPartial(characterId, target, buffer.toString(), usage, isError = false)
+                persistPartial(chatId, characterId, target, buffer.toString(), usage, isError = false)
             }
             emit(GenEvent.Cancelled)
             throw e
@@ -335,7 +364,7 @@ class ChatRepository @Inject constructor(
             val partial = buffer.toString()
             if (partial.isNotBlank()) {
                 withContext(NonCancellable) {
-                    persistPartial(characterId, target, partial, usage, isError = true)
+                    persistPartial(chatId, characterId, target, partial, usage, isError = true)
                 }
             }
             emit(GenEvent.Failed(e.message ?: "", needsApiKey = false))
@@ -344,7 +373,9 @@ class ChatRepository @Inject constructor(
             switches.close()
         }
 
-        val id = withContext(io) { persistPartial(characterId, target, buffer.toString(), usage, isError = false) }
+        val id = withContext(io) {
+            persistPartial(chatId, characterId, target, buffer.toString(), usage, isError = false)
+        }
         emit(GenEvent.Completed(id ?: -1L))
     }
 
@@ -353,6 +384,7 @@ class ChatRepository @Inject constructor(
      * aksi halde o satiri guncelleyip eski metni varyant olarak saklar.
      */
     private suspend fun persistPartial(
+        chatId: String,
         characterId: String,
         target: MessageEntity?,
         text: String,
@@ -365,6 +397,7 @@ class ChatRepository @Inject constructor(
             val id = messageDao.insert(
                 MessageEntity(
                     characterId = characterId,
+                    chatId = chatId,
                     role = MessageEntity.ROLE_ASSISTANT,
                     content = text,
                     variantsJson = encodeVariants(listOf(text)),
@@ -376,6 +409,7 @@ class ChatRepository @Inject constructor(
                     cacheMissTokens = usage?.cacheMissTokens,
                 ),
             )
+            chatDao.touchLastMessage(chatId, now)
             characterDao.touchLastMessage(characterId, now)
             return id
         }

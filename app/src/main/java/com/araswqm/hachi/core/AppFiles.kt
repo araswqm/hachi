@@ -28,7 +28,11 @@ object AppFiles {
     /** Persona resimlerinin karakterlerle cakismamasi icin ayri on ek. */
     fun personaAvatarRelPath(personaId: String): String = "$AVATARS_DIR/persona-$personaId.png"
 
-    fun memoryRelPath(characterId: String): String = "$MEMORY_DIR/$characterId.md"
+    /**
+     * Hafiza dosyasi: `files/memory/<chatId>.md`. Hafiza artik sohbet basina
+     * tutulur (§8), bu yuzden anahtar sohbet kimligidir.
+     */
+    fun memoryRelPath(chatId: String): String = "$MEMORY_DIR/$chatId.md"
 
     /**
      * Disa aktarilan kart dosyasi icin guvenli ad: `Ada Lovelace` ->

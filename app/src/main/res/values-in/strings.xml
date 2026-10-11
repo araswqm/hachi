@@ -24,6 +24,10 @@
 
     <!-- Daftar obrolan -->
     <string name="chats_title">Obrolan</string>
+    <string name="chats_switch_cd">Obrolan</string>
+    <string name="chat_switch_title">Obrolan</string>
+    <string name="chat_switch_new">Obrolan baru</string>
+    <string name="chat_switch_untitled">Obrolan tanpa judul</string>
     <string name="chats_empty_title">Belum ada karakter</string>
     <string name="chats_empty_body">Buat karakter baru atau impor kartu karakter untuk memulai.</string>
     <string name="chats_new_character">Karakter baru</string>

@@ -3,6 +3,7 @@ package com.araswqm.hachi.ui.chat
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.text.format.DateFormat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -28,13 +29,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.HorizontalDivider
@@ -81,11 +82,13 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.araswqm.hachi.R
 import com.araswqm.hachi.data.ai.Placeholders
+import com.araswqm.hachi.data.db.entity.ChatEntity
 import com.araswqm.hachi.ui.common.CharacterAvatar
 import com.araswqm.hachi.ui.common.MarkdownText
 import com.araswqm.hachi.ui.common.relativeTime
 import com.araswqm.hachi.ui.common.rememberHaptics
 import java.io.File
+import java.util.Date
 import kotlinx.coroutines.launch
 
 /**
@@ -99,13 +102,16 @@ import kotlinx.coroutines.launch
 @Composable
 fun ChatScreen(
     onBack: () -> Unit,
-    onOpenDetails: (String) -> Unit,
+    onOpenDetails: (characterId: String, chatId: String?) -> Unit,
     onOpenSettings: () -> Unit,
     viewModel: ChatViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val character by viewModel.character.collectAsStateWithLifecycle()
     val persona by viewModel.persona.collectAsStateWithLifecycle()
+    // Aktif sohbet kimligi (§8): sohbet degistirici alt sayfada secili satiri
+    // isaretlemek icin. `StateFlow<String?>` — lifecycle-guvenli toplanir.
+    val chatIdValue by viewModel.chatId.collectAsStateWithLifecycle()
 
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -114,7 +120,7 @@ fun ChatScreen(
     // §7.2: ayar anahtarini izleyen dokunsal geri bildirim.
     val haptics = rememberHaptics()
 
-    var menuOpen by remember { mutableStateOf(false) }
+    var chatSheetOpen by remember { mutableStateOf(false) }
     var assistantOpen by remember { mutableStateOf(false) }
     var actionTarget by remember { mutableStateOf<ChatMessage?>(null) }
     var editTarget by remember { mutableStateOf<ChatMessage?>(null) }
@@ -189,7 +195,13 @@ fun ChatScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.clickable {
+                            haptics.tap()
+                            onOpenDetails(viewModel.characterId, chatIdValue)
+                        },
+                    ) {
                         CharacterAvatar(
                             file = characterAvatar.file,
                             name = characterAvatar.name,
@@ -214,31 +226,26 @@ fun ChatScreen(
                     }
                 },
                 actions = {
-                    Box {
-                        IconButton(onClick = { haptics.tap(); menuOpen = true }) {
-                            Icon(
-                                imageVector = Icons.Filled.MoreVert,
-                                contentDescription = stringResource(R.string.cd_more_options),
-                            )
-                        }
-                        DropdownMenu(
-                            expanded = menuOpen,
-                            onDismissRequest = { menuOpen = false },
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.action_details)) },
-                                onClick = {
-                                    menuOpen = false
-                                    onOpenDetails(viewModel.characterId)
-                                },
-                            )
-                        }
+                    IconButton(onClick = { haptics.tap(); chatSheetOpen = true }) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.Chat,
+                            contentDescription = stringResource(R.string.chats_switch_cd),
+                        )
                     }
                 },
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
+        if (chatSheetOpen) {
+            ChatSwitcherSheet(
+                chats = uiState.chats,
+                currentChatId = chatIdValue,
+                onSelect = { chatSheetOpen = false; viewModel.switchChat(it) },
+                onCreate = { chatSheetOpen = false; viewModel.createChat() },
+                onDismiss = { chatSheetOpen = false },
+            )
+        }
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -436,56 +443,69 @@ private fun MessageRow(
         else -> MaterialTheme.colorScheme.onSecondaryContainer
     }
 
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = if (fromUser) Arrangement.End else Arrangement.Start,
-        verticalAlignment = Alignment.Bottom,
-    ) {
-        // §8.2: karakter avatari balonun SOLUNDA (yuvarlatilmis kare).
-        if (!fromUser) {
-            MessageAvatar(avatar = avatar, shape = BUBBLE_AVATAR_SHAPE)
-            Spacer(Modifier.width(AVATAR_SPACING))
-        }
-
-        Column(
-            modifier = Modifier.weight(1f, fill = false),
-            horizontalAlignment = if (fromUser) Alignment.End else Alignment.Start,
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = if (fromUser) Arrangement.End else Arrangement.Start,
+            verticalAlignment = Alignment.Bottom,
         ) {
-            if (message.isProactive) {
-                Text(
-                    text = stringResource(R.string.chat_proactive_badge),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(start = 4.dp, bottom = 2.dp),
+            // §8.2: karakter avatari balonun SOLUNDA (yuvarlatilmis kare). Avatar
+            // her zaman balonun alt kenarina hizalanir; varyant/yeniden uret
+            // kontrolleri ayri satirda oldugu icin bunu asagi cekmez.
+            if (!fromUser) {
+                MessageAvatar(avatar = avatar, shape = BUBBLE_AVATAR_SHAPE)
+                Spacer(Modifier.width(AVATAR_SPACING))
+            }
+
+            Column(
+                modifier = Modifier.weight(1f, fill = false),
+                horizontalAlignment = if (fromUser) Alignment.End else Alignment.Start,
+            ) {
+                if (message.isProactive) {
+                    Text(
+                        text = stringResource(R.string.chat_proactive_badge),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(start = 4.dp, bottom = 2.dp),
+                    )
+                }
+
+                Bubble(
+                    message = message,
+                    container = container,
+                    content = content,
+                    shape = shape,
+                    onLongPress = onLongPress,
                 )
             }
 
-            Bubble(
-                message = message,
-                container = container,
-                content = content,
-                shape = shape,
-                onLongPress = onLongPress,
-            )
+            // §8.2: persona avatarı balonun SAGINDA (yuvarlatilmis kare).
+            if (fromUser) {
+                Spacer(Modifier.width(AVATAR_SPACING))
+                MessageAvatar(avatar = avatar, shape = BUBBLE_AVATAR_SHAPE)
+            }
+        }
 
-            if (message.hasVariants) {
+        // Kontroller balonun ALTINDA, kendi satirinda. Boylece avatar (balonun
+        // yanindaki) balonun alt kenarinda kalir, kontrolun dibine inmez.
+        if (message.hasVariants || showRegenerate) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(
+                        start = if (fromUser) 0.dp else AVATAR_SIZE + AVATAR_SPACING,
+                    ),
+                horizontalArrangement = if (fromUser) Arrangement.End else Arrangement.Start,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 VariantSwitcher(
                     index = message.variantIndex,
                     count = message.variantCount,
                     onSelect = onVariant,
+                    onRegenerate = if (!fromUser && showRegenerate) onRegenerate else null,
                     alignEnd = fromUser,
                 )
-            } else if (showRegenerate) {
-                TextButton(onClick = onRegenerate) {
-                    Text(stringResource(R.string.chat_regenerate))
-                }
             }
-        }
-
-        // §8.2: persona avatarı balonun SAGINDA (yuvarlatilmis kare).
-        if (fromUser) {
-            Spacer(Modifier.width(AVATAR_SPACING))
-            MessageAvatar(avatar = avatar, shape = BUBBLE_AVATAR_SHAPE)
         }
     }
 }
@@ -616,24 +636,39 @@ private fun VariantSwitcher(
     index: Int,
     count: Int,
     onSelect: (Int) -> Unit,
+    onRegenerate: (() -> Unit)?,
     alignEnd: Boolean,
 ) {
     val haptics = rememberHaptics()
     Row(
-        modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = if (alignEnd) Arrangement.End else Arrangement.Start,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        IconButton(onClick = { haptics.tap(); onSelect(index - 1) }, enabled = index > 0) {
-            Text("‹", style = MaterialTheme.typography.titleMedium)
+        if (count > 1) {
+            IconButton(onClick = { haptics.tap(); onSelect(index - 1) }, enabled = index > 0) {
+                Text("‹", style = MaterialTheme.typography.titleMedium)
+            }
+            Text(
+                text = "${index + 1}/$count",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            IconButton(
+                onClick = { haptics.tap(); onSelect(index + 1) },
+                enabled = index < count - 1,
+            ) {
+                Text("›", style = MaterialTheme.typography.titleMedium)
+            }
         }
-        Text(
-            text = "${index + 1}/$count",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        IconButton(onClick = { haptics.tap(); onSelect(index + 1) }, enabled = index < count - 1) {
-            Text("›", style = MaterialTheme.typography.titleMedium)
+        // Sinirsiz yeniden uretme: her basista yeni bir varyant eklenir.
+        if (onRegenerate != null) {
+            IconButton(onClick = { haptics.tap(); onRegenerate() }) {
+                Icon(
+                    imageVector = Icons.Filled.Add,
+                    contentDescription = stringResource(R.string.chat_regenerate),
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+            }
         }
     }
 }
@@ -710,6 +745,8 @@ private fun Composer(
                     if (isGenerating) onStop() else onSend()
                 },
                 enabled = isGenerating || value.isNotBlank(),
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.size(56.dp),
             ) {
                 if (isGenerating) {
                     Icon(
@@ -811,6 +848,93 @@ private fun AssistantOption(
         },
         modifier = Modifier.clickable(enabled = enabled, onClick = { haptics.tap(); onClick() }),
     )
+}
+
+/**
+ * §8: ayni karakterin birden fazla sohbeti olabilir; bu alt sayfa aralarinda
+ * gecisi saglar. Satirlar cagrildigi sirada gosterilir; secili sohbet tik ile
+ * isaretlenir. Basligi bos olan sohbetlerde son (ya da olusturulma) tarihi
+ * baslik yerine kullanilir — boylece "Yeni sohbet" satirlari ayirt edilebilir.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ChatSwitcherSheet(
+    chats: List<ChatEntity>,
+    currentChatId: String?,
+    onSelect: (String) -> Unit,
+    onCreate: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val sheetState = rememberModalBottomSheetState()
+    val context = LocalContext.current
+    val haptics = rememberHaptics()
+    // Orta uzunlukta tarih formati cihazin gecerli diline gore cozulur.
+    val dateFormat = remember(context) { DateFormat.getMediumDateFormat(context) }
+
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 24.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.chat_switch_title),
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
+            )
+
+            // Yeni sohbet: her zaman en ustte, tek dokunusla olusturulur.
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.chat_switch_new)) },
+                leadingContent = {
+                    Icon(
+                        imageVector = Icons.Filled.Add,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                },
+                modifier = Modifier.clickable { haptics.tap(); onCreate() },
+            )
+
+            HorizontalDivider()
+
+            LazyColumn {
+                items(chats, key = { it.id }) { chat ->
+                    val stamp = chat.lastMessageAt ?: chat.createdAt
+                    val label = chat.title.takeIf { it.isNotBlank() }
+                        ?: dateFormat.format(Date(stamp))
+                    ListItem(
+                        headlineContent = {
+                            Text(
+                                text = label,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        },
+                        supportingContent = {
+                            val relative = relativeTime(stamp)
+                            if (relative.isNotEmpty()) {
+                                Text(
+                                    text = relative,
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            }
+                        },
+                        trailingContent = {
+                            if (chat.id == currentChatId) {
+                                Icon(
+                                    imageVector = Icons.Filled.Check,
+                                    contentDescription = stringResource(R.string.chats_switch_cd),
+                                    tint = MaterialTheme.colorScheme.primary,
+                                )
+                            }
+                        },
+                        modifier = Modifier.clickable { haptics.tap(); onSelect(chat.id) },
+                    )
+                }
+            }
+        }
+    }
 }
 
 // ----------------------------------------------------------------------

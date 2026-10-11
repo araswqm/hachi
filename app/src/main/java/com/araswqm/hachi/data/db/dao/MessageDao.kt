@@ -8,9 +8,7 @@ import com.araswqm.hachi.data.db.entity.MessageEntity
 import kotlinx.coroutines.flow.Flow
 
 /**
- * Karakter bazli onbellek kullanimi ozeti. Yalnizca hata ayiklama ekrani okur;
- * [requests] prompt token'i raporlanmis (yani gercek bir API cagrisi olan)
- * mesaj sayisidir.
+ * Karakter bazli onbellek kullanimi ozeti. Yalnizca hata ayiklama ekrani okur.
  */
 data class CacheStatRow(
     val characterId: String,
@@ -22,55 +20,38 @@ data class CacheStatRow(
 @Dao
 interface MessageDao {
 
-    /** Sohbet ekrani: eskiden yeniye. */
-    @Query("SELECT * FROM messages WHERE characterId = :characterId ORDER BY createdAt ASC, id ASC")
-    fun observeForCharacter(characterId: String): Flow<List<MessageEntity>>
+    /** Sohbet ekrani: eskiden yeniye (sohbet bazli, §8). */
+    @Query("SELECT * FROM messages WHERE chatId = :chatId ORDER BY createdAt ASC, id ASC")
+    fun observeForChat(chatId: String): Flow<List<MessageEntity>>
 
     @Query("SELECT * FROM messages WHERE id = :id")
     suspend fun getById(id: Long): MessageEntity?
 
-    /**
-     * Prompt icin son N mesaj. DESC + LIMIT ile en yeniler alinir; cagiran taraf
-     * kronolojik siraya cevirir (bkz. PromptBuilder).
-     */
-    @Query(
-        "SELECT * FROM messages WHERE characterId = :characterId " +
-            "ORDER BY createdAt DESC, id DESC LIMIT :limit",
-    )
-    suspend fun getLast(characterId: String, limit: Int): List<MessageEntity>
+    /** Prompt icin son N mesaj (DESC; cagiran kronolojik siraya cevirir). */
+    @Query("SELECT * FROM messages WHERE chatId = :chatId ORDER BY createdAt DESC, id DESC LIMIT :limit")
+    suspend fun getLast(chatId: String, limit: Int): List<MessageEntity>
 
-    /** Ozetleme/kalicilik icin belirli bir id'den SONRAKI mesajlar. */
-    @Query(
-        "SELECT * FROM messages WHERE characterId = :characterId AND id > :afterId " +
-            "ORDER BY id ASC LIMIT :limit",
-    )
-    suspend fun getAfter(characterId: String, afterId: Long, limit: Int): List<MessageEntity>
+    /** Ozetleme icin belirli bir id'den SONRAKI mesajlar. */
+    @Query("SELECT * FROM messages WHERE chatId = :chatId AND id > :afterId ORDER BY id ASC LIMIT :limit")
+    suspend fun getAfter(chatId: String, afterId: Long, limit: Int): List<MessageEntity>
 
-    @Query("SELECT COUNT(*) FROM messages WHERE characterId = :characterId")
-    suspend fun count(characterId: String): Int
+    @Query("SELECT COUNT(*) FROM messages WHERE chatId = :chatId")
+    suspend fun count(chatId: String): Int
 
-    @Query("SELECT COUNT(*) FROM messages WHERE characterId = :characterId AND id > :afterId")
-    suspend fun countAfter(characterId: String, afterId: Long): Int
+    @Query("SELECT COUNT(*) FROM messages WHERE chatId = :chatId AND id > :afterId")
+    suspend fun countAfter(chatId: String, afterId: Long): Int
 
-    /**
-     * §2.1 — [beforeId]'den onceki en buyuk mesaj id'si; yoksa null.
-     * Silme sonrasi ozetleme imlecini guvenli bir noktaya cekmek icin kullanilir.
-     */
-    @Query(
-        "SELECT MAX(id) FROM messages WHERE characterId = :characterId AND id < :beforeId",
-    )
-    suspend fun lastIdBefore(characterId: String, beforeId: Long): Long?
+    /** §2.1 — [beforeId]'den onceki en buyuk mesaj id'si; yoksa null. */
+    @Query("SELECT MAX(id) FROM messages WHERE chatId = :chatId AND id < :beforeId")
+    suspend fun lastIdBefore(chatId: String, beforeId: Long): Long?
 
     /** §2.1 — [maxId] dahil olmak uzere ozetlenmis sayisi. */
-    @Query("SELECT COUNT(*) FROM messages WHERE characterId = :characterId AND id <= :maxId")
-    suspend fun countUpTo(characterId: String, maxId: Long): Int
+    @Query("SELECT COUNT(*) FROM messages WHERE chatId = :chatId AND id <= :maxId")
+    suspend fun countUpTo(chatId: String, maxId: Long): Int
 
-    /** Karakterin son mesajini bulmak icin (zaman farki notu). */
-    @Query(
-        "SELECT * FROM messages WHERE characterId = :characterId " +
-            "ORDER BY createdAt DESC, id DESC LIMIT 1",
-    )
-    suspend fun getLatest(characterId: String): MessageEntity?
+    /** Sohbetin son mesajini bulmak icin. */
+    @Query("SELECT * FROM messages WHERE chatId = :chatId ORDER BY createdAt DESC, id DESC LIMIT 1")
+    suspend fun getLatest(chatId: String): MessageEntity?
 
     @Insert
     suspend fun insert(message: MessageEntity): Long
@@ -81,17 +62,14 @@ interface MessageDao {
     @Query("DELETE FROM messages WHERE id = :id")
     suspend fun deleteById(id: Long)
 
-    @Query("DELETE FROM messages WHERE characterId = :characterId")
-    suspend fun deleteAllForCharacter(characterId: String)
+    @Query("DELETE FROM messages WHERE chatId = :chatId")
+    suspend fun deleteAllForChat(chatId: String)
 
-    @Query("UPDATE messages SET isUnread = 0 WHERE characterId = :characterId AND isUnread = 1")
-    suspend fun markAllRead(characterId: String)
+    @Query("UPDATE messages SET isUnread = 0 WHERE chatId = :chatId AND isUnread = 1")
+    suspend fun markAllRead(chatId: String)
 
-    @Query("SELECT COUNT(*) FROM messages WHERE characterId = :characterId AND isUnread = 1")
-    suspend fun unreadCount(characterId: String): Int
-
-    @Query("SELECT COUNT(*) FROM messages WHERE characterId = :characterId AND isUnread = 1")
-    fun observeUnreadCount(characterId: String): Flow<Int>
+    @Query("SELECT COUNT(*) FROM messages WHERE chatId = :chatId AND isUnread = 1")
+    suspend fun unreadCount(chatId: String): Int
 
     /** Hata ayiklama ekrani: karakter bazli onbellek isabeti. */
     @Query(

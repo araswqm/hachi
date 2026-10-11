@@ -6,13 +6,16 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 
 /**
- * Tek bir sohbet mesaji. Karakter silinince CASCADE ile birlikte gider.
+ * Tek bir sohbet mesaji. Mesaj silinince CASCADE ile birlikte gider.
+ *
+ * §8: mesajlar artik sohbet ([ChatEntity]) bazindadir; [characterId] yalnizca
+ * karakter bazli toplamlar (okunmamis sayisi, son mesaj zamani) ve hata ayiklama
+ * ekrani icin tutulur.
  *
  * Alternatif yanitlar ("kaydir/swipe"):
  *  - [variantsJson] tum alternatifleri bir JSON dizi olarak tutar.
  *  - [variantIndex] su an gosterileni secer.
  *  - [content] aktif metnin kopyasidir; sorgu/siralama ve ozetleyici bunu okur.
- * Bu kucuk tekrar, "aktif metni bulmak icin JSON'u coz" ihtiyacini ortadan kaldirir.
  */
 @Entity(
     tableName = "messages",
@@ -23,15 +26,25 @@ import androidx.room.PrimaryKey
             childColumns = ["characterId"],
             onDelete = ForeignKey.CASCADE,
         ),
+        ForeignKey(
+            entity = ChatEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["chatId"],
+            onDelete = ForeignKey.CASCADE,
+        ),
     ],
     indices = [
         Index("characterId"),
-        Index(value = ["characterId", "createdAt"]),
+        Index("chatId"),
+        Index(value = ["chatId", "createdAt"]),
     ],
 )
 data class MessageEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val characterId: String,
+
+    /** Bu mesajin ait oldugu sohbet (§8). */
+    val chatId: String,
 
     /** [ROLE_USER] veya [ROLE_ASSISTANT]. */
     val role: String,

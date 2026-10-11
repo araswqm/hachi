@@ -16,14 +16,16 @@ object Routes {
     const val EDITOR_PATTERN = "editor?characterId={characterId}"
 
     const val ARG_CHARACTER_ID = "characterId"
+    const val ARG_CHAT_ID = "chatId"
 
-    const val DETAIL_PATTERN = "detail/{characterId}"
+    /**
+     * Karakter ayrintilari. [ARG_CHAT_ID] verilirse persona secimi o SOHBETE
+     * ozel uygulanir (§8); yoksa karakterin genel personasi degisir.
+     */
+    const val DETAIL_PATTERN = "detail/{characterId}?chatId={chatId}"
 
-    /** Sohbet ekrani. */
-    const val CHAT_PATTERN = "chat/{characterId}"
-
-    /** Gizli hata ayiklama ekrani; Ayarlar'dan erisilir. */
-    const val DEBUG = "debug"
+    /** Sohbet ekrani. [ARG_CHAT_ID] verilirse o sohbet, yoksa karakterin son sohbeti acilir. */
+    const val CHAT_PATTERN = "chat/{characterId}?chatId={chatId}"
 
     /** Persona yonetimi (§3); Ayarlar'dan erisilir. */
     const val PERSONAS = "personas"
@@ -32,7 +34,11 @@ object Routes {
         if (characterId.isNullOrBlank()) "editor"
         else "editor?$ARG_CHARACTER_ID=${Uri.encode(characterId)}"
 
-    fun detail(characterId: String): String = "detail/${Uri.encode(characterId)}"
+    fun detail(characterId: String, chatId: String? = null): String =
+        if (chatId.isNullOrBlank()) "detail/${Uri.encode(characterId)}"
+        else "detail/${Uri.encode(characterId)}?$ARG_CHAT_ID=${Uri.encode(chatId)}"
 
-    fun chat(characterId: String): String = "chat/${Uri.encode(characterId)}"
+    fun chat(characterId: String, chatId: String? = null): String =
+        if (chatId.isNullOrBlank()) "chat/${Uri.encode(characterId)}"
+        else "chat/${Uri.encode(characterId)}?$ARG_CHAT_ID=${Uri.encode(chatId)}"
 }

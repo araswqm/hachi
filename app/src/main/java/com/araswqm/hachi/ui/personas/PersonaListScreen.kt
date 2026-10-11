@@ -125,7 +125,10 @@ fun PersonaListScreen(
                     PersonaRow(
                         persona = persona,
                         avatarFile = persona.avatarPath?.let { File(filesDir, it) },
-                        onAvatarClick = { avatarTarget = persona.id },
+                        onAvatarClick = {
+                            avatarTarget = persona.id
+                            avatarPicker.launch(arrayOf("image/*"))
+                        },
                         onMakeDefault = { viewModel.makeDefault(persona.id) },
                         onEdit = { editTarget = persona },
                         onDelete = { deleteTarget = persona },

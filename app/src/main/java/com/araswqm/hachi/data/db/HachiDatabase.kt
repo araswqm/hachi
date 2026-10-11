@@ -3,12 +3,14 @@ package com.araswqm.hachi.data.db
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import com.araswqm.hachi.data.db.dao.CharacterDao
+import com.araswqm.hachi.data.db.dao.ChatDao
 import com.araswqm.hachi.data.db.dao.FollowupDao
 import com.araswqm.hachi.data.db.dao.MemoryStateDao
 import com.araswqm.hachi.data.db.dao.MessageDao
 import com.araswqm.hachi.data.db.dao.PersonaDao
 import com.araswqm.hachi.data.db.dao.ProactiveLogDao
 import com.araswqm.hachi.data.db.entity.CharacterEntity
+import com.araswqm.hachi.data.db.entity.ChatEntity
 import com.araswqm.hachi.data.db.entity.FollowupEntity
 import com.araswqm.hachi.data.db.entity.MemoryStateEntity
 import com.araswqm.hachi.data.db.entity.MessageEntity
@@ -29,6 +31,7 @@ import com.araswqm.hachi.data.db.entity.ProactiveLogEntity
 @Database(
     entities = [
         CharacterEntity::class,
+        ChatEntity::class,
         MessageEntity::class,
         MemoryStateEntity::class,
         PersonaEntity::class,
@@ -40,6 +43,7 @@ import com.araswqm.hachi.data.db.entity.ProactiveLogEntity
 )
 abstract class HachiDatabase : RoomDatabase() {
     abstract fun characterDao(): CharacterDao
+    abstract fun chatDao(): ChatDao
     abstract fun messageDao(): MessageDao
     abstract fun memoryStateDao(): MemoryStateDao
     abstract fun personaDao(): PersonaDao

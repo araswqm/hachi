@@ -7,6 +7,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import com.araswqm.hachi.core.Tuning
 import com.araswqm.hachi.data.db.HachiDatabase
 import com.araswqm.hachi.data.db.dao.CharacterDao
+import com.araswqm.hachi.data.db.dao.ChatDao
 import com.araswqm.hachi.data.db.dao.FollowupDao
 import com.araswqm.hachi.data.db.dao.MemoryStateDao
 import com.araswqm.hachi.data.db.dao.MessageDao
@@ -71,6 +72,9 @@ object AppModule {
 
     @Provides
     fun provideCharacterDao(db: HachiDatabase): CharacterDao = db.characterDao()
+
+    @Provides
+    fun provideChatDao(db: HachiDatabase): ChatDao = db.chatDao()
 
     @Provides
     fun provideMessageDao(db: HachiDatabase): MessageDao = db.messageDao()

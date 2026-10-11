@@ -131,19 +131,8 @@
     <string name="settings_night_owl_desc">Gözü yormayan, OLED siyahı arka plan ve açık renkli yazılar</string>
     <string name="settings_haptics">Titreşimli geri bildirim</string>
     <string name="settings_haptics_desc">Yanıt yazılırken ve düğmelere dokununca çok hafif titreşim</string>
-    <string name="settings_section_debug">Geliştirici</string>
-    <string name="settings_debug_screen">Hata ayıklama ekranı</string>
 
-    <!-- Hata ayıklama -->
-    <string name="debug_title">Hata ayıklama</string>
-    <string name="debug_intimacy">Yakınlık puanları</string>
-    <string name="debug_proactive_log">Kendiliğinden mesaj günlüğü</string>
-    <string name="debug_cache_tokens">Önbellek (hit / miss)</string>
-    <string name="debug_empty">Gösterilecek kayıt yok.</string>
     <string name="debug_deleted_character">Silinmiş karakter</string>
-    <string name="debug_intimacy_line">%1$s — %2$s (ham %3$d, son 5 ort. %4$s)</string>
-    <string name="debug_cache_line">%1$s — hit %2$d / miss %3$d (%4$d istek)</string>
-    <string name="debug_log_entry">%1$s · %2$s / %3$s</string>
     <string name="settings_version">Hachi %1$s</string>
 
     <!-- Personalar (§3) -->

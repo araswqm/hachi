@@ -131,19 +131,8 @@
     <string name="settings_night_owl_desc">Un tema que no cansa la vista, con fondo negro OLED y texto claro</string>
     <string name="settings_haptics">Vibración táctil</string>
     <string name="settings_haptics_desc">Una vibración muy leve mientras se escribe una respuesta y al pulsar los botones</string>
-    <string name="settings_section_debug">Desarrollador</string>
-    <string name="settings_debug_screen">Pantalla de depuración</string>
 
-    <!-- Depuración -->
-    <string name="debug_title">Depuración</string>
-    <string name="debug_intimacy">Puntuaciones de cercanía</string>
-    <string name="debug_proactive_log">Registro de mensajes espontáneos</string>
-    <string name="debug_cache_tokens">Caché (aciertos / fallos)</string>
-    <string name="debug_empty">No hay registros que mostrar.</string>
     <string name="debug_deleted_character">Personaje eliminado</string>
-    <string name="debug_intimacy_line">%1$s — %2$s (bruto %3$d, prom. últimos 5 %4$s)</string>
-    <string name="debug_cache_line">%1$s — aciertos %2$d / fallos %3$d (%4$d solicitudes)</string>
-    <string name="debug_log_entry">%1$s · %2$s / %3$s</string>
     <string name="settings_version">Hachi %1$s</string>
 
     <!-- Personas (§3) -->

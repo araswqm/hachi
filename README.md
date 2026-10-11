@@ -139,3 +139,20 @@ Manage them in **Settings → Personas** — each one can have its own avatar ph
 - If a character drifts out of character, **regenerate** a few times and pick the best variant.
 - Give it a few conversations before judging the memory — it gets noticeably better once there's
   something to remember.
+
+---
+
+## License
+
+Hachi is released under the **PolyForm Noncommercial License 1.0.0**. In short:
+
+- You may **use, change and share** it freely for **any noncommercial purpose** — personal use,
+  study, hobby projects, charity, education and research all count.
+- You may **fork it and build on it**, as long as your work stays noncommercial.
+- You may **not** sell it, bundle it into a paid product, or otherwise use it commercially.
+
+It is *source-available*, not OSI open source — that's deliberate, so people can learn from and
+improve it without it being repackaged and sold.
+
+See [`LICENSE`](LICENSE) for the full terms.
+

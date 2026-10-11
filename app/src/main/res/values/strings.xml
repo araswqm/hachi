@@ -131,19 +131,8 @@
     <string name="settings_night_owl_desc">An easy-on-the-eyes theme with an OLED-black background and light text</string>
     <string name="settings_haptics">Haptic feedback</string>
     <string name="settings_haptics_desc">A very light vibration while a response is being written and when buttons are tapped</string>
-    <string name="settings_section_debug">Developer</string>
-    <string name="settings_debug_screen">Debug screen</string>
 
-    <!-- Debug -->
-    <string name="debug_title">Debug</string>
-    <string name="debug_intimacy">Intimacy scores</string>
-    <string name="debug_proactive_log">Spontaneous message log</string>
-    <string name="debug_cache_tokens">Cache (hit / miss)</string>
-    <string name="debug_empty">No records to show.</string>
     <string name="debug_deleted_character">Deleted character</string>
-    <string name="debug_intimacy_line">%1$s — %2$s (raw %3$d, last 5 avg. %4$s)</string>
-    <string name="debug_cache_line">%1$s — hit %2$d / miss %3$d (%4$d requests)</string>
-    <string name="debug_log_entry">%1$s · %2$s / %3$s</string>
     <string name="settings_version">Hachi %1$s</string>
 
     <!-- Personas (§3) -->

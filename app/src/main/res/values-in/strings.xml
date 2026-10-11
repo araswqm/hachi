@@ -131,19 +131,8 @@
     <string name="settings_night_owl_desc">Tema yang nyaman di mata, dengan latar hitam OLED dan teks terang</string>
     <string name="settings_haptics">Umpan balik getaran</string>
     <string name="settings_haptics_desc">Getaran yang sangat halus saat balasan sedang ditulis dan saat tombol ditekan</string>
-    <string name="settings_section_debug">Pengembang</string>
-    <string name="settings_debug_screen">Layar debug</string>
 
-    <!-- Debug -->
-    <string name="debug_title">Debug</string>
-    <string name="debug_intimacy">Skor kedekatan</string>
-    <string name="debug_proactive_log">Log pesan spontan</string>
-    <string name="debug_cache_tokens">Cache (hit / miss)</string>
-    <string name="debug_empty">Tidak ada catatan untuk ditampilkan.</string>
     <string name="debug_deleted_character">Karakter yang dihapus</string>
-    <string name="debug_intimacy_line">%1$s — %2$s (mentah %3$d, rata-rata 5 terakhir %4$s)</string>
-    <string name="debug_cache_line">%1$s — hit %2$d / miss %3$d (%4$d permintaan)</string>
-    <string name="debug_log_entry">%1$s · %2$s / %3$s</string>
     <string name="settings_version">Hachi %1$s</string>
 
     <!-- Persona (§3) -->

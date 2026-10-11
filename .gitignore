@@ -27,3 +27,6 @@ app/build/
 # İndirilenler / geçici
 /.tmp/
 /artifacts/
+
+# Yerel geliştirme notları (repoda tutulmaz)
+/CLAUDE.md

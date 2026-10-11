@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
 """Hachi launcher / bildirim ikonlarini kaynak gorsellerden uretir.
 
-Kaynaklar (kullanicinin sagladigi dosyalar):
-  /storage/emulated/0/hachilogofinal1.png  (2048x2048)  -> launcher
-  /storage/emulated/0/hachinotif.png       (1508x1272)  -> bildirim / emblem
+Kaynaklar (kullanicinin KENDI sagladigi dosyalar; repoda bulunmaz):
+  <launcher-logo.png>   kare, tam kanamali logo  -> launcher
+  <bildirim-logo.png>   beyaz/şeffaf siluet      -> bildirim / emblem
+
+Yol verme (ikisinden biri):
+  python3 tools/make_icons.py <launcher.png> <bildirim.png>
+  HACHI_LAUNCHER_SRC=... HACHI_NOTIF_SRC=... python3 tools/make_icons.py
 
 Neden bu betik var
 ------------------
@@ -28,7 +32,6 @@ Uretilenler (her yogunluk: mdpi/hdpi/xhdpi/xxhdpi/xxxhdpi icin):
   mipmap-<d>/ic_launcher.png                (48dp: 48/72/96/144/192px)
   mipmap-<d>/ic_launcher_round.png          (48dp)
 
-Calistirma:  python3 tools/make_icons.py
 (Zaten uretilmis PNG'ler repoda; bu betik yalnizca yeniden uretmek icin.)
 """
 
@@ -40,8 +43,21 @@ from PIL import Image
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RES = os.path.join(ROOT, "app", "src", "main", "res")
 
-LAUNCHER_SRC = "/storage/emulated/0/hachilogofinal1.png"
-NOTIF_SRC = "/storage/emulated/0/hachinotif.png"
+# Kaynak gorseller kullanicinin kendi dosyalaridir ve repoda tutulmaz.
+# Sirasiyla: komut satiri argumanlari > ortam degiskenleri. Ikisi de yoksa hata.
+launcher_arg = sys.argv[1] if len(sys.argv) > 1 else os.environ.get("HACHI_LAUNCHER_SRC")
+notif_arg = sys.argv[2] if len(sys.argv) > 2 else os.environ.get("HACHI_NOTIF_SRC")
+
+if not launcher_arg or not notif_arg:
+    print(
+        "Kullanim: python3 tools/make_icons.py <launcher-logo.png> <bildirim-logo.png>\n"
+        "     ya da: HACHI_LAUNCHER_SRC=... HACHI_NOTIF_SRC=... python3 tools/make_icons.py",
+        file=sys.stderr,
+    )
+    sys.exit(2)
+
+LAUNCHER_SRC = launcher_arg
+NOTIF_SRC = notif_arg
 
 # (klasor eki, olcek). mdpi=1x ... xxxhdpi=4x.
 DENSITIES = [

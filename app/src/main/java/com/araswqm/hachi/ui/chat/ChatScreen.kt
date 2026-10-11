@@ -29,7 +29,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
@@ -228,7 +227,7 @@ fun ChatScreen(
                 actions = {
                     IconButton(onClick = { haptics.tap(); chatSheetOpen = true }) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Filled.Chat,
+                            painter = painterResource(R.drawable.ic_chat_switch),
                             contentDescription = stringResource(R.string.chats_switch_cd),
                         )
                     }

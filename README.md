@@ -2,7 +2,7 @@
   <img src="assets/logo.png" alt="Hachi logo" width="160">
 </p>
 
-# Hachi
+---
 
 Hachi is a chat app for Android where you talk with **AI characters you create yourself**.
 
